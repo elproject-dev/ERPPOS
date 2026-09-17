@@ -54,8 +54,8 @@ export default function LoginPage() {
             const version = versionObj.value;
 
             // Generate public URL menggunakan konvensi penamaan script release
-            const apkPath = `android/ELPROJECT_v.${version}.apk`;
-            const exePath = `desktop/ELPROJECT_${version}_x64-setup.exe`;
+            const apkPath = `android/elproject_v.${version}.apk`;
+            const exePath = `desktop/elproject_${version}_x64-setup.exe`;
 
             const { data: androidData } = supabase.storage.from('app-releases').getPublicUrl(apkPath);
             const { data: desktopData } = supabase.storage.from('app-releases').getPublicUrl(exePath);

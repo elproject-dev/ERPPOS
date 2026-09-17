@@ -6,7 +6,7 @@ import { formatRupiah, formatInvoiceNumber, formatSimpleDate } from "@/lib/forma
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, FileText, Calendar, Wallet, ChevronRight, ChevronLeft, AlertCircle, CheckCircle2, Clock, History, TrendingDown, Receipt, Download, FileDown, Printer, Trash2, SlidersHorizontal } from "lucide-react";
+import { Search, FileText, Calendar, Wallet, ChevronRight, ChevronLeft, AlertCircle, CheckCircle2, Clock, History, TrendingDown, Receipt, Download, FileDown, Printer, Trash2, SlidersHorizontal, User } from "lucide-react";
 import { TbCoin } from "react-icons/tb";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -1072,33 +1072,39 @@ export default function ReceivablesPage() {
                           >
                             <div className="flex justify-between items-start mb-3">
                               <div>
-                                <p className="font-mono text-xs font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
-                                  {formatInvoiceNumber(p.transaction_id)}
-                                </p>
                                 <p className="font-semibold text-slate-900 dark:text-white mt-1">
                                   {p.transactions?.customers?.name || 'Pelanggan Umum'}
                                 </p>
                               </div>
-                              <Badge variant="outline" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900/50 font-medium">
-                                <span className="relative flex h-1.5 w-1.5">
-                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-sm bg-amber-400 opacity-75" />
-                                  <span className="relative inline-flex rounded-sm h-1.5 w-1.5 bg-amber-500" />
-                                </span>
-                                Pending
-                              </Badge>
+                              <div className="flex flex-col items-end shrink-0">
+                                <p className="font-mono text-xs font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 border border-slate-200 dark:border-slate-700">
+                                  {formatInvoiceNumber(p.transaction_id)}
+                                </p>
+                              </div>
                             </div>
-                            <div className="flex justify-between text-sm mb-3">
-                              <div>
-                                <p className="text-xs text-slate-500">Sales</p>
-                                <p className="font-medium text-slate-700 dark:text-slate-300">{p.cashier_name || '-'}</p>
+                            <div className="flex justify-between items-end text-sm mb-3">
+                              <div className="flex flex-col gap-2">
+                                <div>
+                                  <p className="text-xs text-slate-500">Sales</p>
+                                  <p className="font-medium text-slate-700 dark:text-slate-300">{p.cashier_name || '-'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-slate-500">Tanggal Bayar</p>
+                                  <p className="font-medium text-slate-700 dark:text-slate-300">{formatSimpleDate(p.payment_date)}</p>
+                                </div>
                               </div>
-                              <div>
-                                <p className="text-xs text-slate-500">Tanggal Bayar</p>
-                                <p className="font-medium text-slate-700 dark:text-slate-300">{formatSimpleDate(p.payment_date)}</p>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-xs text-slate-500">Nominal</p>
-                                <p className="font-bold text-amber-600 dark:text-amber-400 text-lg">{formatRupiah(p.amount)}</p>
+                              <div className="text-right flex flex-col items-end gap-2">
+                                <Badge variant="outline" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900/50 font-medium mb-1">
+                                  <span className="relative flex h-1.5 w-1.5">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-sm bg-amber-400 opacity-75" />
+                                    <span className="relative inline-flex rounded-sm h-1.5 w-1.5 bg-amber-500" />
+                                  </span>
+                                  Pending
+                                </Badge>
+                                <div>
+                                  <p className="text-xs text-slate-500">Nominal</p>
+                                  <p className="font-bold text-amber-600 dark:text-amber-400 text-lg">{formatRupiah(p.amount)}</p>
+                                </div>
                               </div>
                             </div>
                             {p.notes && (
@@ -1224,19 +1230,30 @@ export default function ReceivablesPage() {
                               <div className="flex-1">
                                 <div className="font-semibold text-slate-900 dark:text-white mb-1.5 flex items-center justify-between">
                                   <span>{trx.customer?.name || trx.customer_name || '-'}</span>
-                                  <span className="font-mono text-xs font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">{formatInvoiceNumber(trx.id)}</span>
+                                  <span className="font-mono text-xs font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 border border-slate-200 dark:border-slate-700">{formatInvoiceNumber(trx.id)}</span>
                                 </div>
                                 <div className="flex flex-col gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                                  <div className="flex items-center gap-1.5">
-                                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                                    {formatSimpleDate(trx.created_at)}
-                                  </div>
-                                  {trx.due_date && (
-                                    <div className={`flex items-center gap-1.5 ${isOverdue && trx.payment_status !== 'paid' ? 'text-red-600 dark:text-red-400 font-medium' : 'text-slate-600 dark:text-slate-400'}`}>
-                                      {isOverdue && trx.payment_status !== 'paid' ? <AlertCircle className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
-                                      Jatuh Tempo: {formatSimpleDate(trx.due_date)}
+                                  <div className="flex flex-col gap-1">
+                                    <div className="flex items-center gap-1.5">
+                                      <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                                      {formatSimpleDate(trx.created_at)}
                                     </div>
-                                  )}
+                                    <div className="flex items-center gap-1.5 text-slate-500">
+                                      <User className="w-3.5 h-3.5 text-slate-400" />
+                                      <span className="truncate max-w-[150px]">{trx.cashier_name || '-'}</span>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center justify-between mt-1">
+                                    {trx.due_date ? (
+                                      <div className={`flex items-center gap-1.5 ${isOverdue && trx.payment_status !== 'paid' ? 'text-red-600 dark:text-red-400 font-medium' : 'text-slate-600 dark:text-slate-400'}`}>
+                                        {isOverdue && trx.payment_status !== 'paid' ? <AlertCircle className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
+                                        Jatuh Tempo: {formatSimpleDate(trx.due_date)}
+                                      </div>
+                                    ) : (
+                                      <div />
+                                    )}
+                                    {getStatusBadge(trx.payment_status)}
+                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -1250,11 +1267,7 @@ export default function ReceivablesPage() {
                                 <div className={`font-bold ${trx.payment_status === 'paid' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>{formatRupiah(trx.remaining_balance)}</div>
                               </div>
                             </div>
-                            <div className="flex justify-between items-center pt-3 mt-3 border-t border-slate-100 dark:border-slate-800">
-                              <div className="flex items-center gap-2">
-                                {getStatusBadge(trx.payment_status)}
-                                <span className="text-xs text-slate-500">({trx.cashier_name || '-'})</span>
-                              </div>
+                            <div className="flex justify-end items-center pt-3 mt-3 border-t border-slate-100 dark:border-slate-800">
                               {pendingTransactionIds.has(trx.id) ? (
                                 <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-sm bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
                                   <span className="w-1.5 h-1.5 rounded-sm bg-amber-500 animate-pulse" />

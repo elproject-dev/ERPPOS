@@ -1738,35 +1738,7 @@ export default function ProductsPage() {
                                       <h3 className="font-semibold text-slate-900 dark:text-white text-sm line-clamp-2">{product.name}</h3>
                                       <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{categoryName}</p>
                                     </div>
-                                    {isAdmin && (
-                                      <div onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
-                                        <ActionMenu
-                                          triggerClassName="-mr-2.5 -mt-2.5"
-                                          items={[
-                                            {
-                                              label: "Lihat Detail",
-                                              icon: <Eye className="h-4 w-4 text-slate-500 group-hover/menu-item:text-white" />,
-                                              onClick: () => { setDetailProduct(product); setIsDetailDialogOpen(true); },
-                                            },
-                                            {
-                                              label: "Edit",
-                                              icon: <Pencil className="h-4 w-4 text-slate-500 group-hover/menu-item:text-white" />,
-                                              onClick: () => handleOpenDialog(product),
-                                            },
-                                            {
-                                              label: "Hapus",
-                                              icon: <Trash2 className="h-4 w-4 text-red-500 group-hover/menu-item:text-white" />,
-                                              onClick: () => handleDelete(product.id),
-                                              destructive: true,
-                                            }
-                                          ]}
-                                        />
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center justify-between mt-auto pt-1">
-                                    <div className="flex items-center gap-2">
-                                      <div className="font-bold text-primary text-sm">{formatRupiah(product.price)}</div>
+                                    <div className="flex items-center gap-2 flex-shrink-0">
                                       {isAdmin && selectedOutlet !== "all" ? (() => {
                                         const isAvailable = product.allowed_outlets?.includes('all') || product.allowed_outlets?.includes(selectedOutlet);
                                         return (
@@ -1783,6 +1755,36 @@ export default function ProductsPage() {
                                       ) : (
                                         <Badge className="bg-slate-500 hover:bg-slate-600 text-white whitespace-nowrap text-[10px] px-1.5 py-0 border-0">Nonaktif</Badge>
                                       )}
+                                      {isAdmin && (
+                                        <div onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
+                                          <ActionMenu
+                                            triggerClassName="-mr-2.5 -mt-2.5"
+                                            items={[
+                                              {
+                                                label: "Lihat Detail",
+                                                icon: <Eye className="h-4 w-4 text-slate-500 group-hover/menu-item:text-white" />,
+                                                onClick: () => { setDetailProduct(product); setIsDetailDialogOpen(true); },
+                                              },
+                                              {
+                                                label: "Edit",
+                                                icon: <Pencil className="h-4 w-4 text-slate-500 group-hover/menu-item:text-white" />,
+                                                onClick: () => handleOpenDialog(product),
+                                              },
+                                              {
+                                                label: "Hapus",
+                                                icon: <Trash2 className="h-4 w-4 text-red-500 group-hover/menu-item:text-white" />,
+                                                onClick: () => handleDelete(product.id),
+                                                destructive: true,
+                                              }
+                                            ]}
+                                          />
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center justify-between mt-auto pt-1">
+                                    <div className="flex items-center gap-2">
+                                      <div className="font-bold text-primary text-sm">{formatRupiah(product.price)}</div>
                                     </div>
                                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${(product.stock_quantity || 0) <= 0
                                       ? "bg-red-500 text-white"

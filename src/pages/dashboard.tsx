@@ -106,6 +106,9 @@ export default function DashboardPage() {
   // Ref for auto-scrolling hourly chart to peak hour
   const hourlyScrollRef = useRef<HTMLDivElement>(null);
 
+  // Ref for auto-scrolling revenue chart to the latest date
+  const revenueScrollRef = useRef<HTMLDivElement>(null);
+
 
 
   useEffect(() => {
@@ -295,6 +298,16 @@ export default function DashboardPage() {
       }
     }
   }, [advancedAnalytics?.hourlyAnalytics]);
+
+  // Auto-scroll revenue chart to the latest date (rightmost)
+  useEffect(() => {
+    if (revenueScrollRef.current) {
+      const container = revenueScrollRef.current;
+      setTimeout(() => {
+        container.scrollTo({ left: container.scrollWidth, behavior: 'smooth' });
+      }, 300);
+    }
+  }, [revenueChart]);
 
   // Check font size for responsive layout adjustments
   const currentFontSize = typeof window !== 'undefined' ? localStorage.getItem('fontSize') || 'small' : 'small';
@@ -584,7 +597,7 @@ export default function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            <div className="h-48 sm:h-52 md:h-[220px] mt-4 w-full overflow-x-auto overflow-y-hidden scrollbar-slim">
+            <div ref={revenueScrollRef} className="h-48 sm:h-52 md:h-[220px] mt-4 w-full overflow-x-auto overflow-y-hidden scrollbar-slim">
               <div
                 className="h-full pr-2 sm:pr-0"
                 style={{ minWidth: chartData.length > 7 ? `${chartData.length * 56}px` : '100%' }}

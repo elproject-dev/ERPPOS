@@ -1,7 +1,7 @@
-export const APP_VERSION = '1.0.17';
+export const APP_VERSION = '1.0.19';
 
 export const RELEASE_CHANGELOG = [
-  "perubahan faktur riwayat transaksi"
+  "update bug"
 ];
 
 export interface UpdateInfo {

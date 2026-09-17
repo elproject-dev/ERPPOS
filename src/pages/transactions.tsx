@@ -1509,26 +1509,28 @@ export default function TransactionsPage() {
                         className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-3 flex flex-col gap-2 cursor-pointer hover:shadow-md transition-shadow relative"
                       >
                         {/* Row 1: Invoice + Payment Method Badge + Status Badge + ActionMenu */}
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex items-start justify-between gap-2">
                             <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
                               {formatInvoiceNumber(trx.id)}
                               {trx.is_edited && (
                                 <Badge variant="outline" className="w-5 h-5 p-0 flex items-center justify-center rounded-full border-blue-500 text-blue-600 bg-blue-50 text-[10px]" title="Transaksi telah diedit">R</Badge>
                               )}
                             </div>
-                            <div className="text-xs text-slate-500 mt-0.5">{formatTransactionHistoryDate(trx.created_at)}</div>
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <Badge variant="outline" className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700 flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-sm">
-                              {getPaymentIcon(trx.payment_method)}
-                              {getPaymentLabel(trx.payment_method)}
-                            </Badge>
-                            {getPaymentStatusBadge(trx.payment_status)}
                             <ActionMenu
                               items={getActionMenuItems(trx)}
                               triggerClassName="-mr-2.5 -mt-2.5"
                             />
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="text-xs text-slate-500">{formatTransactionHistoryDate(trx.created_at)}</div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <Badge variant="outline" className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700 flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-sm">
+                                {getPaymentIcon(trx.payment_method)}
+                                {getPaymentLabel(trx.payment_method)}
+                              </Badge>
+                              {getPaymentStatusBadge(trx.payment_status)}
+                            </div>
                           </div>
                         </div>
 

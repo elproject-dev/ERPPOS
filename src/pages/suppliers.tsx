@@ -1729,13 +1729,13 @@ export default function SuppliersPage() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="tanggal" className="text-sm font-semibold text-slate-600 dark:text-slate-300">Tanggal</Label>
-                      <div className="relative w-full h-10">
+                      <div className="relative w-full">
                         <Input
                           type="text"
                           placeholder="Pilih Tanggal"
                           value={formatDateForDisplay(formData.tanggal)}
                           readOnly
-                          className="absolute inset-0 h-10 w-full bg-white dark:bg-slate-950 pr-10 focus:ring-0 cursor-pointer text-left"
+                          className="bg-white dark:bg-slate-950 cursor-pointer text-left"
                         />
                         <input
                           type="date"
@@ -1747,7 +1747,6 @@ export default function SuppliersPage() {
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                           title="Tanggal"
                         />
-                        <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
                       </div>
                     </div>
                     <div className="space-y-2 col-span-2">
@@ -1900,8 +1899,71 @@ export default function SuppliersPage() {
 
                     {/* Items List Table */}
                     {purchasedItems.length > 0 && (
-                      <div className="border border-slate-200 dark:border-slate-800 rounded-sm overflow-hidden bg-white dark:bg-slate-950 shadow-sm mt-3">
-                        <Table>
+                      <>
+                      {/* Mobile Cards */}
+                      <div className="md:hidden flex flex-col gap-3 mt-3">
+                        {purchasedItems.map((item, idx) => (
+                          <div key={item.id} className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-sm p-3 relative shadow-sm">
+                            <div className="flex justify-between items-start mb-2 pr-6">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-slate-900 dark:text-white text-sm">{item.productName}</span>
+                                {item.productId === 'new' && (
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800">
+                                    Baru
+                                  </Badge>
+                                )}
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleRemoveItem(item.id)}
+                                className="h-6 w-6 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 absolute top-2 right-2"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 mb-2">
+                              <div>
+                                <Label className="text-[10px] text-slate-500 mb-1 block">Qty</Label>
+                                <Input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={formatNumber(item.quantity)}
+                                  onChange={(e) => {
+                                    const val = Math.max(1, Number(e.target.value.replace(/[^0-9]/g, '')) || 1);
+                                    setPurchasedItems(prev => prev.map(i => i.id === item.id ? { ...i, quantity: val } : i));
+                                  }}
+                                  className="h-8 text-xs bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 font-medium text-center"
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-[10px] text-slate-500 mb-1 block">Harga Satuan</Label>
+                                <Input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={formatNumber(item.price)}
+                                  onChange={(e) => {
+                                    const val = Number(e.target.value.replace(/[^0-9]/g, '')) || 0;
+                                    setPurchasedItems(prev => prev.map(i => i.id === item.id ? { ...i, price: val } : i));
+                                  }}
+                                  className="h-8 text-xs bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 font-medium text-right"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex justify-between items-center pt-2 border-t border-slate-100 dark:border-slate-800/60 mt-1">
+                              <span className="text-xs text-slate-500">Subtotal</span>
+                              <span className="font-bold text-slate-900 dark:text-white text-sm">
+                                {formatCurrency(item.price * item.quantity)}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Desktop Table */}
+                      <div className="hidden md:block border border-slate-200 dark:border-slate-800 rounded-sm overflow-x-auto bg-white dark:bg-slate-950 shadow-sm mt-3">
+                        <Table className="min-w-[600px]">
                           <TableHeader className="bg-slate-50 dark:bg-slate-900">
                             <TableRow className="border-b border-slate-200 dark:border-slate-800">
                               <TableHead className="w-12 text-center font-semibold text-slate-600 dark:text-slate-400 text-xs">No</TableHead>
@@ -1972,6 +2034,7 @@ export default function SuppliersPage() {
                           </TableBody>
                         </Table>
                       </div>
+                      </>
                     )}
                   </div>
 
@@ -2068,13 +2131,13 @@ export default function SuppliersPage() {
                         {formData.paymentType !== "Lunas" && (
                           <div className="space-y-2">
                             <Label className="text-sm font-semibold text-slate-600 dark:text-slate-300">Tanggal Jatuh Tempo</Label>
-                            <div className="relative w-full h-10">
+                            <div className="relative w-full">
                               <Input
                                 type="text"
                                 placeholder="Pilih Tanggal"
                                 value={formatDateForDisplay(formData.dueDate)}
                                 readOnly
-                                className="absolute inset-0 h-10 w-full bg-white dark:bg-slate-950 pr-10 focus:ring-0 cursor-pointer text-left"
+                                className="bg-white dark:bg-slate-950 cursor-pointer text-left"
                               />
                               <input
                                 type="date"
@@ -2086,7 +2149,6 @@ export default function SuppliersPage() {
                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                 title="Tanggal Jatuh Tempo"
                               />
-                              <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
                             </div>
                           </div>
                         )}
@@ -2260,43 +2322,43 @@ export default function SuppliersPage() {
                             className="relative bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-3.5 shadow-sm cursor-pointer hover:shadow-md transition-shadow flex flex-col gap-2.5"
                             onClick={() => setSelectedTransaction(trx)}
                           >
-                            <div className="absolute top-1.5 right-1.5 z-10" onClick={(e) => e.stopPropagation()}>
-                              <ActionMenu
-                                items={[
-                                  {
-                                    label: trx.isTransferred ? "Lihat Transfer" : "Proses Transfer",
-                                    icon: <ArrowRightLeft className={`h-4 w-4 ${trx.isTransferred ? "text-slate-500" : "text-emerald-500"}`} />,
-                                    onClick: () => setTransferTransaction(trx),
-                                  },
-                                  {
-                                    label: "Lihat Detail",
-                                    icon: <Eye className="h-4 w-4 text-slate-500" />,
-                                    onClick: () => setSelectedTransaction(trx),
-                                  },
-                                  {
-                                    label: "Edit",
-                                    icon: <Edit className="h-4 w-4 text-slate-500" />,
-                                    onClick: () => handleEditTransaction(trx),
-                                  },
-                                  {
-                                    label: "Hapus",
-                                    icon: <Trash2 className="h-4 w-4 text-red-500" />,
-                                    onClick: () => handleDeleteTransaction(trx.id),
-                                    destructive: true,
-                                  },
-                                ]}
-                              />
-                            </div>
-                            <div className="flex justify-between items-start gap-2 pr-7">
-                              <div>
-                                <p className="font-semibold text-slate-900 dark:text-white text-sm">
-                                  {trx.supplierName}
-                                </p>
-                                <p className="font-mono text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
-                                  {trx.id}
-                                </p>
+                            <div className="flex justify-between items-start gap-2">
+                              <p className="font-mono text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">
+                                {trx.id}
+                              </p>
+                              <div onClick={(e) => e.stopPropagation()} className="-mr-2 -mt-1">
+                                <ActionMenu
+                                  items={[
+                                    {
+                                      label: trx.isTransferred ? "Lihat Transfer" : "Proses Transfer",
+                                      icon: <ArrowRightLeft className={`h-4 w-4 ${trx.isTransferred ? "text-slate-500" : "text-emerald-500"}`} />,
+                                      onClick: () => setTransferTransaction(trx),
+                                    },
+                                    {
+                                      label: "Lihat Detail",
+                                      icon: <Eye className="h-4 w-4 text-slate-500" />,
+                                      onClick: () => setSelectedTransaction(trx),
+                                    },
+                                    {
+                                      label: "Edit",
+                                      icon: <Edit className="h-4 w-4 text-slate-500" />,
+                                      onClick: () => handleEditTransaction(trx),
+                                    },
+                                    {
+                                      label: "Hapus",
+                                      icon: <Trash2 className="h-4 w-4 text-red-500" />,
+                                      onClick: () => handleDeleteTransaction(trx.id),
+                                      destructive: true,
+                                    },
+                                  ]}
+                                />
                               </div>
-                              <span className={`font-semibold text-xs mt-0.5 ${trx.isTransferred ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
+                            </div>
+                            <div className="flex justify-between items-center gap-2 mt-1">
+                              <p className="font-semibold text-slate-900 dark:text-white text-sm">
+                                {trx.supplierName}
+                              </p>
+                              <span className={`font-semibold text-[11px] ${trx.isTransferred ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
                                 {trx.isTransferred ? "Selesai" : "Menunggu"}
                               </span>
                             </div>

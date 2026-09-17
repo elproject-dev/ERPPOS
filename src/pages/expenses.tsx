@@ -1100,7 +1100,7 @@ export default function ExpensesPage() {
                                 <Upload className="w-6 h-6 text-white drop-shadow-md mb-1" />
                                 <span className="text-xs font-semibold text-white drop-shadow-md">Ganti Foto</span>
                               </div>
-                              <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleRemoveImage(); }} className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors z-10">
+                              <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleRemoveImage(); }} className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-sm flex items-center justify-center hover:bg-red-600 transition-colors z-10">
                                 <X className="w-4 h-4" />
                               </button>
                             </>
@@ -1287,7 +1287,7 @@ export default function ExpensesPage() {
                             <Button variant="outline" className="h-9 px-2.5 sm:px-3 relative shadow-sm border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
                               <SlidersHorizontal className="w-4 h-4" />
                               {(selectedCategory !== "all" || selectedOutlet !== "all" || selectedUserId !== "all") && (
-                                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full" />
+                                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-sm" />
                               )}
                             </Button>
                           </PopoverTrigger>
@@ -1448,9 +1448,6 @@ export default function ExpensesPage() {
                                   {formatDate(expense.date)}
                                 </div>
                                 <div className="flex items-center gap-1.5 shrink-0">
-                                  <div className="font-bold text-red-600 dark:text-red-400 text-base whitespace-nowrap text-right">
-                                    {formatCurrency(expense.amount)}
-                                  </div>
                                   {isAdmin && (
                                     <div onClick={(e) => e.stopPropagation()}>
                                       <ActionMenu
@@ -1479,36 +1476,36 @@ export default function ExpensesPage() {
                                   <div>{expense.description}</div>
                                   {expense.supplier && (
                                     <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
-                                      <Store className="w-3 h-3" />
+
                                       Suplier: {expense.supplier}
                                     </div>
                                   )}
                                   <div className="flex items-center gap-1.5 mt-2">
-                                    <span className={`inline-flex px-2 py-1 text-[10px] sm:text-xs font-medium rounded-full ${getCategoryColor(expense.category)}`}>
+                                    <span className={`inline-flex px-2 py-1 text-[10px] sm:text-xs font-medium rounded-sm ${getCategoryColor(expense.category)}`}>
                                       {getCategoryLabel(expense.category)}
                                     </span>
+                                    {isAdmin && expense.status === 'pending' ? (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleUpdateStatus(expense.id, 'approved'); }}
+                                        className="inline-flex px-3.5 py-1.5 text-[10px] sm:text-xs font-bold rounded-sm bg-red-600 hover:bg-red-700 text-white transition-all cursor-pointer shadow-md shadow-red-600/20 hover:shadow-lg hover:shadow-red-600/30 hover:-translate-y-0.5 active:translate-y-0 duration-200"
+                                      >
+                                        Konfirmasi
+                                      </button>
+                                    ) : (
+                                      <span
+                                        className={`inline-flex px-2 py-1 text-[10px] sm:text-xs font-medium rounded-sm text-white shadow-sm ${expense.status === 'pending'
+                                          ? 'bg-yellow-500'
+                                          : expense.status === 'rejected'
+                                            ? 'bg-red-500'
+                                            : 'bg-green-500'
+                                          }`}
+                                      >
+                                        {expense.status === 'pending' ? 'Pending' : expense.status === 'rejected' ? 'Ditolak' : 'Disetujui'}
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                                 <div className="shrink-0 flex flex-col items-end gap-2">
-                                  {isAdmin && expense.status === 'pending' ? (
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); handleUpdateStatus(expense.id, 'approved'); }}
-                                      className="inline-flex px-3.5 py-1.5 text-[10px] sm:text-xs font-bold rounded-sm bg-red-600 hover:bg-red-700 text-white transition-all cursor-pointer shadow-md shadow-red-600/20 hover:shadow-lg hover:shadow-red-600/30 hover:-translate-y-0.5 active:translate-y-0 duration-200"
-                                    >
-                                      Konfirmasi
-                                    </button>
-                                  ) : (
-                                    <span
-                                      className={`inline-flex px-2 py-1 text-[10px] sm:text-xs font-medium rounded-full text-white shadow-sm ${expense.status === 'pending'
-                                        ? 'bg-yellow-500'
-                                        : expense.status === 'rejected'
-                                          ? 'bg-red-500'
-                                          : 'bg-green-500'
-                                        }`}
-                                    >
-                                      {expense.status === 'pending' ? 'Pending' : expense.status === 'rejected' ? 'Ditolak' : 'Disetujui'}
-                                    </span>
-                                  )}
                                   {expense.image_url && (
                                     <Button
                                       variant="ghost"
@@ -1528,6 +1525,9 @@ export default function ExpensesPage() {
                                     <User className="w-3.5 h-3.5" />
                                     {staffName}
                                   </div>
+                                </div>
+                                <div className="font-bold text-red-600 dark:text-red-400 text-base whitespace-nowrap text-right">
+                                  {formatCurrency(expense.amount)}
                                 </div>
                               </div>
                             </div>
@@ -1699,7 +1699,7 @@ export default function ExpensesPage() {
               {categories.map((cat) => (
                 <div key={cat.id} className="flex items-center justify-between p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-sm group">
                   <div className="flex items-center gap-2">
-                    <span className={`w-3 h-3 rounded-full ${getBadgeDotColor(cat.color)}`} />
+                    <span className={`w-3 h-3 rounded-sm ${getBadgeDotColor(cat.color)}`} />
                     <span className="font-medium text-slate-700 dark:text-slate-300">{cat.name}</span>
                   </div>
                   <Button
@@ -1862,7 +1862,7 @@ export default function ExpensesPage() {
             <Button
               variant="ghost"
               size="icon"
-              className="absolute top-2 right-2 z-50 bg-black/50 hover:bg-black/70 text-white rounded-full h-8 w-8"
+              className="absolute top-2 right-2 z-50 bg-black/50 hover:bg-black/70 text-white rounded-sm h-8 w-8"
               onClick={() => setViewImageUrl(null)}
             >
               <X className="w-4 h-4" />
