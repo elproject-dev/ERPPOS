@@ -56,7 +56,7 @@ export default function RegisterPage() {
     if (password !== confirmPassword) {
       toast({
         title: "Validasi Gagal",
-        description: "Password dan konfirmasi password tidak cocok",
+        description: "Password dan konfirmasi password tidak cocok.",
         variant: "destructive",
       });
       return;
@@ -67,15 +67,15 @@ export default function RegisterPage() {
     try {
       const sessionUser = await register(email, password, name, phone);
       toast({
-        title: "Registrasi berhasil",
-        description: `Akun Anda telah dibuat dan berstatus NONAKTIF. Silakan hubungi Admin untuk validasi/aktivasi.`,
+        title: "Registrasi Berhasil",
+        description: "Akun Anda telah dibuat (Berstatus NONAKTIF).\nSilakan hubungi Admin untuk validasi & aktivasi akun.",
         variant: "success",
       });
       setLocation("/login");
     } catch (error) {
       toast({
-        title: "Registrasi gagal",
-        description: error instanceof Error ? error.message : "Terjadi kesalahan",
+        title: "Registrasi Gagal",
+        description: error instanceof Error ? error.message : "Terjadi kesalahan saat membuat akun.",
         variant: "destructive",
       });
     } finally {
