@@ -423,11 +423,11 @@ INSERT INTO customers (name, email, phone, membership_type, points) VALUES
 
 INSERT INTO staff (name, email, phone, role, status) VALUES 
 
-('Ahmad Kasir', 'ahmad@sbagiamu.com', '08123456789', 'kasir', 'active'),
+('Ahmad Kasir', 'ahmad@elproject.com', '08123456789', 'kasir', 'active'),
 
-('Budi Supervisor', 'budi@sbagiamu.com', '08156789012', 'supervisor', 'active'),
+('Budi Supervisor', 'budi@elproject.com', '08156789012', 'supervisor', 'active'),
 
-('Super Admin', 'sbagiamu.pos@gmail.com', '08123456789', 'admin', 'active');
+('Super Admin', 'elproject.pos@gmail.com', '08123456789', 'admin', 'active');
 
 
 

@@ -21,6 +21,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthUserName, useAuth } from "@/contexts/AuthContext";
 import { ADMIN_EMAIL } from "@/lib/auth";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 interface CartItem {
   productId: number;
@@ -129,7 +130,23 @@ export default function POSPage() {
   const [manualAddress, setManualAddress] = useState<string>("");
   const [manualDistrict, setManualDistrict] = useState<string>("");
   const [manualCity, setManualCity] = useState<string>("");
+  const [manualProvince, setManualProvince] = useState<string>("");
+  const [manualVillage, setManualVillage] = useState<string>("");
+  const [manualPostalCode, setManualPostalCode] = useState<string>("");
   const [manualCustomerId, setManualCustomerId] = useState<string>("");
+
+  // Emsifa wilayah API states
+  const [posProvinces, setPosProvinces] = useState<any[]>([]);
+  const [posRegencies, setPosRegencies] = useState<any[]>([]);
+  const [posDistricts, setPosDistricts] = useState<any[]>([]);
+  const [posVillages, setPosVillages] = useState<any[]>([]);
+  const [posSelectedProvId, setPosSelectedProvId] = useState("");
+  const [posSelectedKabId, setPosSelectedKabId] = useState("");
+  const [posSelectedKecId, setPosSelectedKecId] = useState("");
+  const [isLoadingPosProv, setIsLoadingPosProv] = useState(false);
+  const [isLoadingPosKab, setIsLoadingPosKab] = useState(false);
+  const [isLoadingPosKec, setIsLoadingPosKec] = useState(false);
+  const [isLoadingPosKel, setIsLoadingPosKel] = useState(false);
 
   const [paymentMethod, setPaymentMethod] = useState<string>("cash");
   const [amountPaidDisplay, setAmountPaidDisplay] = useState<string>("");
@@ -156,75 +173,86 @@ export default function POSPage() {
   const [dueDate, setDueDate] = useState<string>("");
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
+
+
+  // Fetch provinces when customer section becomes relevant (always on mount)
   useEffect(() => {
-    if (isEditMode && editTransactionData) {
-      const items = editTransactionData.transaction_items || [];
-      const newCart = items.map((item: any) => ({
-        productId: item.product_id,
-        productName: item.product_name,
-        price: item.price,
-        quantity: item.unit_qty || (item.quantity / (item.conversion_factor || 1)),
-        unitName: item.unit_name || 'pcs',
-        conversionFactor: item.conversion_factor || 1,
-        unitPrice: item.price * (item.conversion_factor || 1),
-        uomDiscountType: 'none',
-        uomDiscountAmount: 0,
-        uomMinQty: 1,
-        uomLabel: ''
-      }));
-
-      setCart(newCart);
-
-      if (editTransactionData.customer_id) {
-        setCustomerId(editTransactionData.customer_id);
-      } else if (editTransactionData.customer_name) {
-        setManualCustomerName(editTransactionData.customer_name);
-      }
-
-      setPaymentMethod(editTransactionData.payment_method);
-      if (editTransactionData.payment_status === 'partial') {
-        setPaymentType('dp');
-        setAmountPaidDisplay(formatNumberWithDots(editTransactionData.amount_paid?.toString() || "0"));
-        setAmountPaidStr(formatNumberWithDots(editTransactionData.amount_paid?.toString() || "0"));
-      } else if (editTransactionData.payment_status === 'unpaid') {
-        setPaymentType('tempo');
-      } else {
-        setPaymentType('lunas');
-      }
-
-      if (editTransactionData.due_date) {
-        setDueDate(editTransactionData.due_date);
-      }
-
-      if (editTransactionData.discount > 0) {
-        const note = editTransactionData.discount_note || "";
-
-        // Default to 0 / empty for admin discounts as requested
-        setDiscountType('percent');
-        setDiscountPercentStr("");
-        setDiscountDisplay("");
-        setDiscountStr("");
-
-        // Parse custom note part
-        const noteParts = note.split(' + ');
-        const customNotePart = noteParts.find((p: string) => !p.startsWith('Diskon Global') && !p.startsWith('Diskon Admin'));
-        
-        if (customNotePart) {
-           setDiscountNote(customNotePart);
-        } else if (!note.includes('Diskon Global') && !note.includes('Diskon Admin')) {
-           setDiscountNote(note);
-        } else {
-           setDiscountNote("");
-        }
-      } else {
-        setDiscountType('percent');
-        setDiscountDisplay("");
-        setDiscountStr("");
-        setDiscountPercentStr("");
-        setDiscountNote("");
-      }
+    async function fetchPosProvinces() {
+      setIsLoadingPosProv(true);
+      try {
+        const res = await fetch("https://www.emsifa.com/api-wilayah-indonesia/api/provinces.json");
+        setPosProvinces(await res.json());
+      } catch (e) { console.error(e); }
+      finally { setIsLoadingPosProv(false); }
     }
-  }, [editTransactionData, isEditMode]);
+    fetchPosProvinces();
+  }, []);
+
+  // Fetch regencies when province changes
+  useEffect(() => {
+    if (!posSelectedProvId) { setPosRegencies([]); setPosSelectedKabId(""); return; }
+    async function fetchPosRegencies() {
+      setIsLoadingPosKab(true);
+      try {
+        const res = await fetch(`https://www.emsifa.com/api-wilayah-indonesia/api/regencies/${posSelectedProvId}.json`);
+        setPosRegencies(await res.json());
+      } catch (e) { console.error(e); }
+      finally { setIsLoadingPosKab(false); }
+    }
+    fetchPosRegencies();
+  }, [posSelectedProvId]);
+
+  // Fetch districts when regency changes
+  useEffect(() => {
+    if (!posSelectedKabId) { setPosDistricts([]); setPosSelectedKecId(""); return; }
+    async function fetchPosDistricts() {
+      setIsLoadingPosKec(true);
+      try {
+        const res = await fetch(`https://www.emsifa.com/api-wilayah-indonesia/api/districts/${posSelectedKabId}.json`);
+        setPosDistricts(await res.json());
+      } catch (e) { console.error(e); }
+      finally { setIsLoadingPosKec(false); }
+    }
+    fetchPosDistricts();
+  }, [posSelectedKabId]);
+
+  // Fetch villages when district changes
+  useEffect(() => {
+    if (!posSelectedKecId) { setPosVillages([]); return; }
+    async function fetchPosVillages() {
+      setIsLoadingPosKel(true);
+      try {
+        const res = await fetch(`https://www.emsifa.com/api-wilayah-indonesia/api/villages/${posSelectedKecId}.json`);
+        setPosVillages(await res.json());
+      } catch (e) { console.error(e); }
+      finally { setIsLoadingPosKel(false); }
+    }
+    fetchPosVillages();
+  }, [posSelectedKecId]);
+
+  // Auto-select Province when editing existing customer
+  useEffect(() => {
+    if (manualProvince && posProvinces.length > 0 && !posSelectedProvId) {
+      const found = posProvinces.find((p: any) => p.name?.toLowerCase() === manualProvince?.toLowerCase());
+      if (found) setPosSelectedProvId(found.id);
+    }
+  }, [manualProvince, posProvinces, posSelectedProvId]);
+
+  // Auto-select Regency when editing
+  useEffect(() => {
+    if (manualCity && posRegencies.length > 0 && !posSelectedKabId) {
+      const found = posRegencies.find((r: any) => r.name?.toLowerCase() === manualCity?.toLowerCase());
+      if (found) setPosSelectedKabId(found.id);
+    }
+  }, [manualCity, posRegencies, posSelectedKabId]);
+
+  // Auto-select District when editing
+  useEffect(() => {
+    if (manualDistrict && posDistricts.length > 0 && !posSelectedKecId) {
+      const found = posDistricts.find((d: any) => d.name?.toLowerCase() === manualDistrict?.toLowerCase());
+      if (found) setPosSelectedKecId(found.id);
+    }
+  }, [manualDistrict, posDistricts, posSelectedKecId]);
 
   // UOM selector state
   const [uomSelectorProduct, setUomSelectorProduct] = useState<any>(null);
@@ -286,10 +314,117 @@ export default function POSPage() {
         setManualAddress(c.address || "");
         setManualDistrict(c.district || "");
         setManualCity(c.city || "");
+        setManualProvince(c.province || "");
+        setManualVillage(c.village || "");
+        setManualPostalCode(c.postal_code || "");
         setManualCustomerId(c.customer_id_manual || "");
+        // Reset wilayah IDs so auto-select useEffects can run
+        setPosSelectedProvId("");
+        setPosSelectedKabId("");
+        setPosSelectedKecId("");
       }
     }
   }, [isEditMode, editTransactionData, customers]);
+
+  useEffect(() => {
+    if (isEditMode && editTransactionData) {
+      const items = editTransactionData.transaction_items || [];
+      const newCart = items.map((item: any) => {
+        const rawImg = item.imageUrl || item.image_url || item.product?.image_url || item.product?.imageUrl;
+        const prod = products?.find((p: any) => p.id === item.product_id);
+        const imageUrl = prod ? getProductImageUrl(prod, 'thumb') : (rawImg ? getProductImageUrlFromStorage(rawImg, { width: 100, height: 100 }) : null);
+
+        return {
+          productId: item.product_id,
+          productName: item.product_name,
+          price: item.price,
+          quantity: item.unit_qty || (item.quantity / (item.conversion_factor || 1)),
+          imageUrl: imageUrl,
+          unitName: item.unit_name || 'pcs',
+          conversionFactor: item.conversion_factor || 1,
+          unitPrice: item.price * (item.conversion_factor || 1),
+          uomDiscountType: 'none',
+          uomDiscountAmount: 0,
+          uomMinQty: 1,
+          uomLabel: ''
+        };
+      });
+
+      setCart(newCart);
+
+      if (editTransactionData.customer_id) {
+        setCustomerId(editTransactionData.customer_id);
+      } else if (editTransactionData.customer_name) {
+        setManualCustomerName(editTransactionData.customer_name);
+      }
+
+      setPaymentMethod(editTransactionData.payment_method);
+      if (editTransactionData.payment_status === 'partial') {
+        setPaymentType('dp');
+        setAmountPaidDisplay(formatNumberWithDots(editTransactionData.amount_paid?.toString() || "0"));
+        setAmountPaidStr(formatNumberWithDots(editTransactionData.amount_paid?.toString() || "0"));
+      } else if (editTransactionData.payment_status === 'unpaid') {
+        setPaymentType('tempo');
+      } else {
+        setPaymentType('lunas');
+      }
+
+      if (editTransactionData.due_date) {
+        setDueDate(editTransactionData.due_date);
+      }
+
+      if (editTransactionData.discount > 0) {
+        const note = editTransactionData.discount_note || "";
+
+        // Default to 0 / empty for admin discounts as requested
+        setDiscountType('percent');
+        setDiscountPercentStr("");
+        setDiscountDisplay("");
+        setDiscountStr("");
+
+        // Parse custom note part
+        const noteParts = note.split(' + ');
+        const customNotePart = noteParts.find((p: string) => !p.startsWith('Diskon Global') && !p.startsWith('Diskon Admin'));
+
+        if (customNotePart) {
+          setDiscountNote(customNotePart);
+        } else if (!note.includes('Diskon Global') && !note.includes('Diskon Admin')) {
+          setDiscountNote(note);
+        } else {
+          setDiscountNote("");
+        }
+      } else {
+        setDiscountType('percent');
+        setDiscountDisplay("");
+        setDiscountStr("");
+        setDiscountPercentStr("");
+        setDiscountNote("");
+      }
+    }
+  }, [editTransactionData, isEditMode, products]);
+
+  // Auto-sync missing product images in cart when products list loads
+  useEffect(() => {
+    if (cart.length > 0 && products && products.length > 0) {
+      let updated = false;
+      const updatedCart = cart.map(item => {
+        if (!item.imageUrl) {
+          const prod = products.find((p: any) => p.id === item.productId);
+          if (prod) {
+            const img = getProductImageUrl(prod, 'thumb');
+            if (img) {
+              updated = true;
+              return { ...item, imageUrl: img };
+            }
+          }
+        }
+        return item;
+      });
+      if (updated) {
+        setCart(updatedCart);
+      }
+    }
+  }, [products]);
 
   const getProductBasePrice = (product: any) => {
     // Priority 1: Check default/base UOM outlet-specific price
@@ -385,7 +520,7 @@ export default function POSPage() {
     };
 
     if (!isBluetoothAvailable()) {
-      console.error('Bluetooth plugin not available');
+      console.warn('Bluetooth plugin not available');
       showError('Plugin Bluetooth tidak tersedia di perangkat ini.');
       return;
     }
@@ -406,7 +541,7 @@ export default function POSPage() {
       const showFooter = storeSettingsData?.show_footer ?? true;
       const printData = {
         ...transaction,
-        storeName: storeSettingsData?.bluetooth_store_name || storeSettingsData?.name || 'CV.AULIA USAHA',
+        storeName: storeSettingsData?.bluetooth_store_name || storeSettingsData?.name || 'EL PROJECT',
         storeAddress: storeSettingsData?.address || '',
         storePhone: storeSettingsData?.phone || '',
         footerMessage: showFooter ? (activeOutletObj?.footer_message || storeSettingsData?.footer_message || '') : '',
@@ -647,7 +782,7 @@ export default function POSPage() {
   };
 
   // Function untuk create pelanggan baru
-  const createNewCustomer = async (name: string, phone: string, alamat: string, kecamatan: string, kabupaten: string) => {
+  const createNewCustomer = async (name: string, phone: string, alamat: string, kecamatan: string, kabupaten: string, provinsi?: string, kelurahan?: string, kodepos?: string) => {
     try {
       const trimmedName = name.trim();
       const trimmedPhone = phone.trim();
@@ -674,12 +809,14 @@ export default function POSPage() {
         .insert({
           name: trimmedName,
           phone: trimmedPhone || null,
-          total_spent: 0,
           sales_name: cashierName,
           customer_id_manual: autoGeneratedId,
           address: alamat.trim() || null,
           district: kecamatan.trim() || null,
           city: kabupaten.trim() || null,
+          province: provinsi?.trim() || null,
+          village: kelurahan?.trim() || null,
+          postal_code: kodepos?.trim() || null,
           ...(outletIdToSave !== null ? { outlet_id: outletIdToSave } : {})
         })
         .select()
@@ -702,7 +839,7 @@ export default function POSPage() {
   };
 
   const clearCart = () => {
-    if (cart.length > 0 && confirm("Hapus semua item dari keranjang?")) {
+    if (cart.length > 0) {
       setCart([]);
       setDiscountDisplay("");
       setDiscountStr("");
@@ -715,42 +852,7 @@ export default function POSPage() {
 
   // Function untuk update total belanja customer langsung di supabase
   const updateCustomerData = async (customerId: number, transactionTotal: number) => {
-    try {
-      const { data: customer, error: fetchError } = await supabase
-        .from('customers')
-        .select('total_spent')
-        .eq('id', customerId)
-        .single();
-
-      if (fetchError) {
-        return false;
-      }
-
-      const currentTotalSpent = customer?.total_spent || 0;
-
-      // Hitung total belanja baru
-      const newTotalSpent = (currentTotalSpent || 0) + transactionTotal;
-
-      // Update customer dengan data baru
-      if (newTotalSpent !== currentTotalSpent) {
-        const { error: updateError } = await supabase
-          .from('customers')
-          .update({
-            total_spent: newTotalSpent
-          })
-          .eq('id', customerId);
-
-        if (updateError) {
-          return false;
-        } else {
-          return true;
-        }
-      } else {
-        return true;
-      }
-    } catch (err) {
-      return false;
-    }
+    return true;
   };
 
   const getCartItemPriceAndDiscount = (item: CartItem) => {
@@ -877,9 +979,12 @@ export default function POSPage() {
     const manualAddressValue = manualAddress.trim();
     const manualDistrictValue = manualDistrict.trim();
     const manualCityValue = manualCity.trim();
+    const manualProvinceValue = manualProvince.trim();
+    const manualVillageValue = manualVillage.trim();
+    const manualPostalCodeValue = manualPostalCode.trim();
 
     if (!customerId && manualName) {
-      const newCustomer = await createNewCustomer(manualName, manualPhone, manualAddressValue, manualDistrictValue, manualCityValue);
+      const newCustomer = await createNewCustomer(manualName, manualPhone, manualAddressValue, manualDistrictValue, manualCityValue, manualProvinceValue, manualVillageValue, manualPostalCodeValue);
       if (newCustomer) {
         finalCustomerId = newCustomer.id;
         toast({ title: "Sukses", description: `Pelanggan baru "${newCustomer.name}" berhasil dibuat`, variant: "default" });
@@ -893,7 +998,10 @@ export default function POSPage() {
         manualPhone !== (selectedCustomer.phone || "") ||
         manualAddressValue !== (selectedCustomer.address || "") ||
         manualDistrictValue !== (selectedCustomer.district || "") ||
-        manualCityValue !== (selectedCustomer.city || "")
+        manualCityValue !== (selectedCustomer.city || "") ||
+        manualProvinceValue !== (selectedCustomer.province || "") ||
+        manualVillageValue !== (selectedCustomer.village || "") ||
+        manualPostalCodeValue !== (selectedCustomer.postal_code || "")
       ) {
         await new Promise((resolve) => {
           updateCustomer.mutate({
@@ -903,7 +1011,10 @@ export default function POSPage() {
               phone: manualPhone,
               address: manualAddressValue,
               district: manualDistrictValue,
-              city: manualCityValue
+              city: manualCityValue,
+              province: manualProvinceValue,
+              village: manualVillageValue,
+              postal_code: manualPostalCodeValue
             }
           }, {
             onSuccess: resolve,
@@ -943,12 +1054,12 @@ export default function POSPage() {
     const adminDiscountNote = (enableDiscount && discountType === 'percent' && parsedDiscountPercent > 0)
       ? `Diskon Admin ${parsedDiscountPercent}%`
       : (enableDiscount && manualDiscount > 0) ? 'Diskon Admin' : '';
-      
+
     let finalDiscountNoteParts = [];
     if (globalDiscountAmount > 0) finalDiscountNoteParts.push(`Diskon Global ${appliedGlobalDiscountPercent}%`);
     if (adminDiscountNote) finalDiscountNoteParts.push(adminDiscountNote);
     if (discountNoteSelectValue) finalDiscountNoteParts.push(discountNoteSelectValue);
-    
+
     const finalDiscountNote = finalDiscountNoteParts.join(' + ');
 
     const transactionPayload = {
@@ -1123,6 +1234,11 @@ export default function POSPage() {
           res?.id != null ? formatInvoiceNumber(res.id) : undefined
         );
         setIsSubmitting(false);
+
+        if (isEditMode) {
+          // Tutup mode edit otomatis dengan kembali ke daftar transaksi
+          setLocation(`/transactions?view=${res?.id || editId}`);
+        }
       },
       onError: (error: any) => {
         setIsSubmitting(false);
@@ -1234,7 +1350,7 @@ export default function POSPage() {
           {showProducts && (
             <ScrollArea className="flex-1 p-4">
               {isLoadingProducts ? (
-                <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-4">
                   {[...Array(12)].map((_, i) => (
                     <div key={i} className="aspect-square bg-slate-200 dark:bg-slate-700 animate-pulse rounded-lg" />
                   ))}
@@ -1242,24 +1358,24 @@ export default function POSPage() {
               ) : posProducts?.length === 0 ? (
                 <div></div>
               ) : (
-                <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-4">
                   {posProducts?.map(product => {
                     const imageUrl = getProductImageUrl(product, 'small');
                     return (
                       <div
                         key={product.id}
-                        className="p-[3px] rounded-xl hover:scale-105 transition-transform duration-200 cursor-pointer"
+                        className="p-[3px] rounded-sm hover:scale-105 transition-transform duration-200 cursor-pointer"
                         onClick={() => handleProductClick(product)}
                       >
                         <Card
-                          className="overflow-hidden active:scale-95 flex flex-col h-full"
+                          className="rounded-sm overflow-hidden active:scale-95 flex flex-col h-full"
                         >
                           <div className="aspect-square w-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center relative">
                             {imageUrl ? (
                               <img
                                 src={imageUrl}
                                 alt={product.name}
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-cover mb-2"
                                 loading="lazy"
                                 onError={(e) => {
                                   e.currentTarget.style.display = 'none';
@@ -1296,16 +1412,16 @@ export default function POSPage() {
 
         {/* Right Panel: Cart */}
         <div className="w-full lg:flex-[3] flex flex-col bg-white dark:bg-slate-800 shadow-xl z-10 border-t lg:border-t-0 lg:border-l border-slate-200 dark:border-slate-700 flex-1 lg:h-full order-2 pb-16 lg:pb-0">
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {/* Cart Header */}
-            <div className="p-4 lg:p-3 border-b border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 sticky top-0 z-10">
+            <div className="p-4 lg:p-3 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 sticky top-0 z-10">
               <div className="flex items-center justify-between">
                 <h2 className="font-medium text-base flex items-center gap-2 text-slate-700">
                   <ShoppingCart className="w-5 h-5 lg:w-4 lg:h-4 text-primary" />
                   Pesanan Aktif
                 </h2>
                 <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="font-medium text-xs lg:text-xs bg-primary/10 text-primary dark:bg-primary-900/30 dark:text-primary-300">
+                  <Badge className="font-medium text-xs lg:text-xs bg-primary text-primary-foreground hover:bg-primary/90 rounded-none">
                     {cart.reduce((sum, item) => sum + item.quantity, 0)} item
                   </Badge>
                   {cart.length > 0 && (
@@ -1315,7 +1431,7 @@ export default function POSPage() {
                       onClick={clearCart}
                       className="text-red-500 hover:text-red-700 hover:bg-red-50"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <X className="w-4 h-4" />
                     </Button>
                   )}
                 </div>
@@ -1331,8 +1447,8 @@ export default function POSPage() {
               ) : (
                 <div className="space-y-2">
                   {cart.map(item => (
-                    <div key={`${item.productId}_${item.unitName}`} className="flex items-center gap-2 lg:gap-2 p-3 lg:p-2 rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-                      <div className="w-10 h-10 lg:w-11 lg:h-11 rounded-md bg-slate-200 dark:bg-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    <div key={`${item.productId}_${item.unitName}`} className="flex items-center gap-2 lg:gap-2 p-3 lg:p-2 rounded-sm border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+                      <div className="w-14 h-14 lg:w-16 lg:h-16 rounded-sm bg-slate-200 dark:bg-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0">
                         {item.imageUrl ? (
                           <img
                             src={item.imageUrl}
@@ -1384,17 +1500,17 @@ export default function POSPage() {
                       </div>
 
                       <div className="flex items-center gap-1 lg:gap-2">
-                        <div className="flex items-center gap-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-md p-0.5">
+                        <div className="flex items-center gap-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-sm p-0.5">
                           <button
                             onClick={() => updateQuantity(item.productId, -1, item.unitName)}
-                            className="w-5 h-5 lg:w-6 lg:h-6 flex items-center justify-center rounded hover:bg-slate-100 dark:hover:bg-slate-700 active:bg-slate-200 dark:active:bg-slate-600 text-slate-600 dark:text-slate-300 transition-colors"
+                            className="w-5 h-5 lg:w-6 lg:h-6 flex items-center justify-center rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 active:bg-slate-200 dark:active:bg-slate-600 text-slate-600 dark:text-slate-300 transition-colors"
                           >
                             <Minus className="w-2.5 h-2.5 lg:w-3 lg:h-3" />
                           </button>
                           <span className="w-4 text-center text-xs font-medium text-slate-700">{item.quantity}</span>
                           <button
                             onClick={() => updateQuantity(item.productId, 1, item.unitName)}
-                            className="w-5 h-5 lg:w-6 lg:h-6 flex items-center justify-center rounded hover:bg-slate-100 dark:hover:bg-slate-700 active:bg-slate-200 dark:active:bg-slate-600 text-slate-600 dark:text-slate-300 transition-colors"
+                            className="w-5 h-5 lg:w-6 lg:h-6 flex items-center justify-center rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 active:bg-slate-200 dark:active:bg-slate-600 text-slate-600 dark:text-slate-300 transition-colors"
                           >
                             <Plus className="w-2.5 h-2.5 lg:w-3 lg:h-3" />
                           </button>
@@ -1429,10 +1545,10 @@ export default function POSPage() {
                     onFocus={() => setShowCustomerDropdown(true)}
                     onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 200)}
                     placeholder="Cari pelanggan member..."
-                    className="h-10 lg:h-9"
+                    className="h-10 lg:h-9 rounded-sm"
                   />
                   {showCustomerDropdown && customerSearchQuery && (
-                    <div className="absolute z-20 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-60 overflow-auto">
+                    <div className="absolute z-20 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-sm shadow-lg max-h-60 overflow-auto">
                       {isLoadingCustomers ? (
                         <div className="p-3 text-sm text-slate-500 dark:text-slate-400 font-normal">Memuat...</div>
                       ) : customers && customers.length > 0 ? (
@@ -1447,8 +1563,14 @@ export default function POSPage() {
                                 setManualAddress(c.address || "");
                                 setManualDistrict(c.district || "");
                                 setManualCity(c.city || "");
+                                setManualProvince(c.province || "");
+                                setManualVillage(c.village || "");
+                                setManualPostalCode(c.postal_code || "");
                                 setManualCustomerId(c.customer_id_manual || "");
-                                setManualCustomerId(c.customer_id_manual || "");
+                                // Reset wilayah IDs so auto-select useEffects can fire
+                                setPosSelectedProvId("");
+                                setPosSelectedKabId("");
+                                setPosSelectedKecId("");
                                 setCustomerSearchQuery("");
                                 setShowCustomerDropdown(false);
                               }}
@@ -1478,8 +1600,13 @@ export default function POSPage() {
                       setManualAddress("");
                       setManualDistrict("");
                       setManualCity("");
+                      setManualProvince("");
+                      setManualVillage("");
+                      setManualPostalCode("");
                       setManualCustomerId("");
-                      setManualCustomerId("");
+                      setPosSelectedProvId("");
+                      setPosSelectedKabId("");
+                      setPosSelectedKecId("");
                     }}
                     className="text-xs text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 underline"
                   >
@@ -1501,7 +1628,7 @@ export default function POSPage() {
                       setManualCustomerName(e.target.value);
                     }}
                     placeholder="Masukkan nama pelanggan"
-                    className="h-10 lg:h-9"
+                    className="h-10 lg:h-9 rounded-sm"
                   />
                 </div>
                 <div className="flex flex-col gap-2">
@@ -1510,7 +1637,7 @@ export default function POSPage() {
                     value={manualCustomerPhone}
                     onChange={(e) => setManualCustomerPhone(e.target.value)}
                     placeholder="Masukkan nomor telepon"
-                    className="h-10 lg:h-9"
+                    className="h-10 lg:h-9 rounded-sm"
                   />
                 </div>
 
@@ -1520,26 +1647,95 @@ export default function POSPage() {
                     value={manualAddress}
                     onChange={(e) => setManualAddress(e.target.value)}
                     placeholder="Masukkan alamat"
-                    className="h-10 lg:h-9"
+                    className="h-10 lg:h-9 rounded-sm"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-normal text-slate-500 dark:text-slate-400 uppercase tracking-wider">Provinsi</label>
+                  <SearchableSelect
+                    options={posProvinces}
+                    value={posSelectedProvId}
+                    onChange={(id, name) => {
+                      setPosSelectedProvId(id);
+                      setPosSelectedKabId("");
+                      setPosSelectedKecId("");
+                      setManualProvince(name);
+                      setManualCity("");
+                      setManualDistrict("");
+                      setManualVillage("");
+                      setManualPostalCode("");
+                    }}
+                    placeholder="Pilih Provinsi..."
+                    loading={isLoadingPosProv}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="flex flex-col gap-2">
-                    <label className="text-xs font-normal text-slate-500 dark:text-slate-400 uppercase tracking-wider">Kecamatan</label>
-                    <Input
-                      value={manualDistrict}
-                      onChange={(e) => setManualDistrict(e.target.value)}
-                      placeholder="Kecamatan"
-                      className="h-10 lg:h-9"
+                    <label className="text-xs font-normal text-slate-500 dark:text-slate-400 uppercase tracking-wider">Kota / Kab</label>
+                    <SearchableSelect
+                      options={posRegencies}
+                      value={posSelectedKabId}
+                      onChange={(id, name) => {
+                        setPosSelectedKabId(id);
+                        setPosSelectedKecId("");
+                        setManualCity(name);
+                        setManualDistrict("");
+                        setManualVillage("");
+                        setManualPostalCode("");
+                      }}
+                      placeholder="Kota/Kabupaten..."
+                      loading={isLoadingPosKab}
+                      disabled={!posSelectedProvId}
                     />
                   </div>
                   <div className="flex flex-col gap-2">
-                    <label className="text-xs font-normal text-slate-500 dark:text-slate-400 uppercase tracking-wider">Kabupaten</label>
+                    <label className="text-xs font-normal text-slate-500 dark:text-slate-400 uppercase tracking-wider">Kecamatan</label>
+                    <SearchableSelect
+                      options={posDistricts}
+                      value={posSelectedKecId}
+                      onChange={(id, name) => {
+                        setPosSelectedKecId(id);
+                        setManualDistrict(name);
+                        setManualVillage("");
+                        setManualPostalCode("");
+                      }}
+                      placeholder="Kecamatan..."
+                      loading={isLoadingPosKec}
+                      disabled={!posSelectedKabId}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-normal text-slate-500 dark:text-slate-400 uppercase tracking-wider">Kelurahan</label>
+                    <SearchableSelect
+                      options={posVillages}
+                      value={posVillages.find((v: any) => v.name === manualVillage)?.id || ""}
+                      onChange={(_id, name) => {
+                        setManualVillage(name);
+                        // Auto-fetch postal code
+                        fetch(`https://kodepos.vercel.app/search?q=${name}`)
+                          .then(res => res.json())
+                          .then(resData => {
+                            if (resData && resData.data && resData.data.length > 0) {
+                              const match = resData.data.find((d: any) => d.district.toLowerCase() === manualDistrict?.toLowerCase()) || resData.data[0];
+                              setManualPostalCode(match.code.toString());
+                            }
+                          })
+                          .catch(err => console.error("Gagal mengambil kodepos", err));
+                      }}
+                      placeholder="Kelurahan..."
+                      loading={isLoadingPosKel}
+                      disabled={!posSelectedKecId}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-normal text-slate-500 dark:text-slate-400 uppercase tracking-wider">Kode Pos</label>
                     <Input
-                      value={manualCity}
-                      onChange={(e) => setManualCity(e.target.value)}
-                      placeholder="Kabupaten"
-                      className="h-10 lg:h-9"
+                      value={manualPostalCode}
+                      onChange={(e) => setManualPostalCode(e.target.value)}
+                      placeholder="Kodepos"
+                      className="h-10 lg:h-9 rounded-sm"
                     />
                   </div>
                 </div>
@@ -1564,7 +1760,7 @@ export default function POSPage() {
                       value={discountPercentStr}
                       onChange={(e) => setDiscountPercentStr(e.target.value)}
                       placeholder="0"
-                      className="pr-8 h-10 lg:h-9"
+                      className="pr-8 h-10 lg:h-9 rounded-sm"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 font-medium text-sm">%</span>
                   </div>
@@ -1596,7 +1792,7 @@ export default function POSPage() {
                     }
                   }}
                 >
-                  <SelectTrigger className="w-full h-10 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
+                  <SelectTrigger className="w-full h-10 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-sm">
                     <SelectValue placeholder="Pilih Tipe Pembayaran" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1613,7 +1809,7 @@ export default function POSPage() {
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-normal text-slate-500 dark:text-slate-400 uppercase tracking-wider">Cabang Transaksi</label>
                   <Select value={selectedOutlet} onValueChange={setSelectedOutlet}>
-                    <SelectTrigger className="w-full h-10 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
+                    <SelectTrigger className="w-full h-10 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-sm">
                       <SelectValue placeholder="Pilih Cabang Transaksi" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1636,21 +1832,21 @@ export default function POSPage() {
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     onClick={() => setPaymentMethod("cash")}
-                    className={`flex flex-col items-center justify-center p-2 rounded-lg border-2 transition-all ${paymentMethod === "cash" ? "border-primary bg-primary/5 text-primary dark:bg-primary-900/20 dark:border-primary-400 dark:text-primary-300" : "border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600"}`}
+                    className={`flex flex-col items-center justify-center p-2 rounded-sm border-2 transition-all ${paymentMethod === "cash" ? "border-primary bg-primary/5 text-primary dark:bg-primary-900/20 dark:border-primary-400 dark:text-primary-300" : "border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600"}`}
                   >
                     <Banknote className="w-4 h-4 lg:w-5 lg:h-5 mb-1" />
                     <span className="text-[10px] font-medium">Tunai</span>
                   </button>
                   <button
                     onClick={() => setPaymentMethod("transfer")}
-                    className={`flex flex-col items-center justify-center p-2 rounded-lg border-2 transition-all ${paymentMethod === "transfer" ? "border-primary bg-primary/5 text-primary dark:bg-primary-900/20 dark:border-primary-400 dark:text-primary-300" : "border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600"}`}
+                    className={`flex flex-col items-center justify-center p-2 rounded-sm border-2 transition-all ${paymentMethod === "transfer" ? "border-primary bg-primary/5 text-primary dark:bg-primary-900/20 dark:border-primary-400 dark:text-primary-300" : "border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600"}`}
                   >
                     <CreditCard className="w-4 h-4 lg:w-5 lg:h-5 mb-1" />
                     <span className="text-[10px] font-medium">Transfer</span>
                   </button>
                   <button
                     onClick={() => setPaymentMethod("qris")}
-                    className={`flex flex-col items-center justify-center p-2 rounded-lg border-2 transition-all ${paymentMethod === "qris" ? "border-primary bg-primary/5 text-primary dark:bg-primary-900/20 dark:border-primary-400 dark:text-primary-300" : "border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600"}`}
+                    className={`flex flex-col items-center justify-center p-2 rounded-sm border-2 transition-all ${paymentMethod === "qris" ? "border-primary bg-primary/5 text-primary dark:bg-primary-900/20 dark:border-primary-400 dark:text-primary-300" : "border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600"}`}
                   >
                     <QrCode className="w-4 h-4 lg:w-5 lg:h-5 mb-1" />
                     <span className="text-[10px] font-medium">QRIS</span>
@@ -1673,14 +1869,14 @@ export default function POSPage() {
                         type="text"
                         value={amountPaidDisplay}
                         onChange={handleAmountPaidChange}
-                        className="pl-9 h-10 rounded-md border font-bold text-sm"
+                        className="pl-9 h-10 rounded-sm border font-bold text-sm"
                         placeholder="0"
                       />
                     </div>
                   </div>
                   <div className="flex-1">
                     <label className="text-xs font-normal text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1 block">Sisa Hutang</label>
-                    <div className={`h-10 rounded-md border flex items-center px-3 font-bold text-sm bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400`}>
+                    <div className={`h-10 rounded-sm border flex items-center px-3 font-bold text-sm bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400`}>
                       {formatRupiah(Math.max(0, total - amountPaid))}
                     </div>
                   </div>
@@ -1697,7 +1893,7 @@ export default function POSPage() {
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
-                        className={`w-full justify-between text-left font-medium h-10 px-3 border border-slate-200 dark:border-slate-800 rounded-md bg-white dark:bg-slate-900 ${!dueDate ? "text-slate-400" : "text-slate-900 dark:text-slate-100"
+                        className={`w-full justify-between text-left font-medium h-10 px-3 border border-slate-200 dark:border-slate-800 rounded-sm bg-white dark:bg-slate-900 ${!dueDate ? "text-slate-400" : "text-slate-900 dark:text-slate-100"
                           }`}
                       >
                         {dueDate ? (
@@ -1708,7 +1904,7 @@ export default function POSPage() {
                         <CalendarRange className="w-4 h-4 text-slate-400" />
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg" align="start">
+                    <PopoverContent className="w-auto p-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-sm shadow-lg" align="start">
                       <Calendar
                         mode="single"
                         selected={dueDate ? new Date(dueDate) : undefined}
@@ -1724,7 +1920,6 @@ export default function POSPage() {
                           setIsCalendarOpen(false);
                         }}
                         disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                        initialFocus
                       />
                     </PopoverContent>
                   </Popover>
@@ -1736,7 +1931,7 @@ export default function POSPage() {
 
             {/* Summary */}
             <div className="px-4 lg:px-3 pb-4 lg:pb-3">
-              <div className="bg-slate-100 dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-700 space-y-2">
+              <div className="bg-slate-100 dark:bg-slate-900 rounded-sm p-4 border border-slate-200 dark:border-slate-700 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-500 dark:text-slate-400">Subtotal</span>
                   <span className="font-medium text-slate-900 dark:text-slate-100">{formatRupiah(subtotal)}</span>
@@ -1770,7 +1965,7 @@ export default function POSPage() {
             <div className="px-4 lg:px-3 pb-12 lg:pb-3 flex gap-2">
               {isEditMode && (
                 <Button
-                  className="h-12 text-base font-medium"
+                  className="h-12 text-base font-medium rounded-sm"
                   size="lg"
                   variant="outline"
                   onClick={() => {
@@ -1782,7 +1977,7 @@ export default function POSPage() {
                 </Button>
               )}
               <Button
-                className="flex-1 h-12 text-base font-medium shadow-lg"
+                className="flex-1 h-12 text-base font-medium shadow-lg rounded-sm"
                 size="lg"
                 disabled={
                   isSubmitting ||
@@ -1811,14 +2006,10 @@ export default function POSPage() {
 
       {/* Receipt Dialog */}
       <Dialog open={showReceipt} onOpenChange={setShowReceipt}>
-        <DialogContent className="max-w-md dark:bg-slate-800 max-h-[90vh] flex flex-col">
+        <DialogContent className="dark:bg-slate-800 max-h-[120vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle className="text-center flex flex-col items-center gap-2">
-              <div className="w-12 h-12 rounded-full bg-emerald-500 text-white flex items-center justify-center">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
+            <DialogTitle className="text-center flex flex-col items-center gap-4">
+              <CheckCircle2 className="w-12 h-12 text-emerald-500" />
               Transaksi Berhasil
             </DialogTitle>
             <DialogDescription className="text-center text-slate-600 dark:text-slate-400">
@@ -1826,13 +2017,15 @@ export default function POSPage() {
             </DialogDescription>
           </DialogHeader>
 
+          <div className="border-t border-dashed border-slate-200 dark:border-slate-700 w-full" />
+
           {/* Scrollable Content - Hidden Scrollbar */}
-          <div className="flex-1 overflow-y-auto scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            <div className="bg-slate-100 dark:bg-slate-900 rounded-lg p-4 space-y-2 font-mono text-sm">
+          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            <div className="rounded-sm space-y-2 font-mono text-sm">
               {/* Header - Store Name Centered */}
               <div className="text-center mb-3">
                 <p className="font-bold text-base text-slate-900 dark:text-slate-100">
-                  {storeSettingsData?.name || 'CV.AULIA USAHA'}
+                  {storeSettingsData?.name || 'EL PROJECT'}
                 </p>
                 {(() => {
                   const address = storeSettingsData?.address;
@@ -1954,40 +2147,40 @@ export default function POSPage() {
 
               </div>
             </div>
-
-            <DialogFooter className="sm:justify-center gap-2">
-              <Button
-                onClick={() => handlePrintReceipt(lastTransaction, { showSuccessNotification: true })}
-                disabled={isPrinting}
-                variant="outline"
-                className="w-full"
-              >
-                {isPrinting ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                    Mencetak...
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <Printer className="w-4 h-4" />
-                    Print
-                  </div>
-                )}
-              </Button>
-              <Button
-                onClick={() => setShowReceipt(false)}
-                className="w-full"
-              >
-                Selesai
-              </Button>
-            </DialogFooter>
           </div>
+
+          <DialogFooter className="sm:justify-center gap-2 mt-2">
+            <Button
+              onClick={() => handlePrintReceipt(lastTransaction, { showSuccessNotification: true })}
+              disabled={isPrinting}
+              variant="outline"
+              className="w-full sm:flex-1 rounded-sm"
+            >
+              {isPrinting ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  Mencetak...
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Printer className="w-4 h-4" />
+                  Print
+                </div>
+              )}
+            </Button>
+            <Button
+              onClick={() => setShowReceipt(false)}
+              className="w-full sm:flex-1 rounded-sm"
+            >
+              Selesai
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* UOM Selector Dialog */}
       <Dialog open={!!uomSelectorProduct} onOpenChange={(open) => !open && setUomSelectorProduct(null)}>
-        <DialogContent className="sm:max-w-md sm:rounded-2xl">
+        <DialogContent className="sm:max-w-md sm:rounded-sm">
           <DialogHeader className="flex flex-col items-center justify-center text-center sm:text-center">
             <DialogTitle className="text-base font-bold">
               Pilih Satuan
@@ -2033,10 +2226,10 @@ export default function POSPage() {
                       setQtySelector({ product: uomSelectorProduct, uom });
                       setUomSelectorProduct(null);
                     }}
-                    className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all duration-200 active:scale-[0.98] group"
+                    className="flex items-center justify-between p-3 rounded-sm border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all duration-200 active:scale-[0.98] group"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 flex items-center justify-center text-xs font-bold uppercase">
+                      <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 flex items-center justify-center text-[8px] font-bold uppercase">
                         {uom.unit_name.slice(0, 3)}
                       </div>
                       <div className="text-left">
@@ -2071,13 +2264,16 @@ export default function POSPage() {
 
       {/* QTY Selector Dialog */}
       <Dialog open={!!qtySelector} onOpenChange={(open) => !open && setQtySelector(null)}>
-        <DialogContent className="sm:max-w-xs sm:rounded-2xl">
+        <DialogContent className="sm:max-w-sm sm:rounded-sm">
           <DialogHeader className="flex flex-col items-center justify-center text-center sm:text-center">
             <DialogTitle className="text-base font-bold">
               Masukkan Jumlah
             </DialogTitle>
-            <DialogDescription className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-1">
-              {qtySelector?.product?.name} <span className="text-sm font-normal text-slate-500 dark:text-slate-400">({qtySelector?.uom?.unit_name || 'pcs'})</span>
+            <DialogDescription className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-1 flex flex-col items-center justify-center gap-1.5">
+              <span className="text-center">{qtySelector?.product?.name}</span>
+              <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+                {qtySelector?.uom?.unit_name || 'pcs'}
+              </span>
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4 py-4">
@@ -2091,7 +2287,7 @@ export default function POSPage() {
               </Button>
               <Input
                 type="number"
-                className="w-24 text-center font-bold text-lg"
+                className="w-24 text-center font-bold text-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 value={qtyInput}
                 onChange={(e) => setQtyInput(parseInt(e.target.value) || 1)}
                 min={1}

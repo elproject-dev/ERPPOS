@@ -15,13 +15,13 @@ export default function ForgotPasswordPage() {
   const [isSuccess, setIsSuccess] = useState(false);
 
   // Get custom primary color from localStorage
-  const [primaryHue, setPrimaryHue] = useState(() => parseInt(localStorage.getItem('primaryHue') || '35'));
+  const [primaryHue, setPrimaryHue] = useState(() => parseInt(localStorage.getItem('primaryHue') || '15'));
   const [primarySaturation, setPrimarySaturation] = useState(() => parseInt(localStorage.getItem('primarySaturation') || '100'));
   const [primaryLightness, setPrimaryLightness] = useState(() => parseInt(localStorage.getItem('primaryLightness') || '45'));
 
   useEffect(() => {
     const syncColor = () => {
-      setPrimaryHue(parseInt(localStorage.getItem('primaryHue') || '35'));
+      setPrimaryHue(parseInt(localStorage.getItem('primaryHue') || '15'));
       setPrimarySaturation(parseInt(localStorage.getItem('primarySaturation') || '100'));
       setPrimaryLightness(parseInt(localStorage.getItem('primaryLightness') || '45'));
     };
@@ -44,7 +44,7 @@ export default function ForgotPasswordPage() {
       const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
       const redirectUrl = (Capacitor.isNativePlatform() || isTauri)
-        ? `https://elproject-dev.github.io/CV.AULIA-USAHA/update-password` // Ganti ini dengan URL web production Anda jika sudah berubah
+        ? `https://elproject-dev.github.io/elproject/update-password` // Ganti ini dengan URL web production Anda jika sudah berubah
         : `${window.location.origin}/update-password`;
 
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -116,7 +116,7 @@ export default function ForgotPasswordPage() {
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 group-focus-within/input:text-white transition-colors duration-300" />
                     <Input
                       type="email"
-                      placeholder="contoh: budi@cvauliausaha.com"
+                      placeholder="contoh@email.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="h-12 pl-11 bg-white/5 border-white/10 text-white placeholder:text-white/40 rounded-xl focus:bg-white/10 focus:border-white/30 focus:ring-4 focus:ring-white/10 focus-visible:ring-0 focus-visible:border-white/30 focus-visible:ring-offset-0 transition-all duration-300"

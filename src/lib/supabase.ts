@@ -18,7 +18,7 @@ if (!supabaseUrl.startsWith('http')) {
  */
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storageKey: 'cvaulia-kasir-auth',
+    storageKey: 'elproject-kasir-auth',
     persistSession: false,
     autoRefreshToken: false,
     detectSessionInUrl: false,

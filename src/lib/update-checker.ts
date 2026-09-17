@@ -1,8 +1,8 @@
 import { supabase } from './supabase';
 import { APP_VERSION, isUpdateAvailable, type UpdateInfo } from './version';
 
-const SESSION_CACHE_KEY = 'cvaulia_update_checked';
-const SKIP_VERSION_KEY = 'cvaulia_skip_version';
+const SESSION_CACHE_KEY = 'elproject_update_checked';
+const SKIP_VERSION_KEY = 'elproject_skip_version';
 
 /**
  * Ambil konfigurasi update dari tabel app_config di Supabase

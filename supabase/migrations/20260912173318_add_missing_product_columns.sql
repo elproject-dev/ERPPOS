@@ -1,0 +1,3 @@
+ALTER TABLE products
+ADD COLUMN IF NOT EXISTS stock_quantity INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS outlet_prices JSONB DEFAULT '{}'::jsonb;

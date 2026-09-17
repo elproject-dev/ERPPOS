@@ -7,7 +7,7 @@ import {
   ToastProvider,
   ToastViewport,
 } from "@/components/ui/toast"
-import { Check } from "lucide-react"
+import { Check, CheckCircle2 } from "lucide-react"
 
 export function Toaster() {
   const { toasts } = useToast()
@@ -24,9 +24,9 @@ export function Toaster() {
               )}
             </div>
             {action}
-            {variant === "success" ? (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white/20 flex items-center justify-center">
-                <Check className="w-3 h-3 text-white" />
+            {title === "Sukses" || title === "Berhasil" || variant === "success" ? (
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center">
+                <CheckCircle2 className="w-10 h-10 text-emerald-400" />
               </div>
             ) : (
               <ToastClose />

@@ -22,13 +22,13 @@ export default function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Get custom primary color from localStorage
-  const [primaryHue, setPrimaryHue] = useState(() => parseInt(localStorage.getItem('primaryHue') || '35'));
+  const [primaryHue, setPrimaryHue] = useState(() => parseInt(localStorage.getItem('primaryHue') || '15'));
   const [primarySaturation, setPrimarySaturation] = useState(() => parseInt(localStorage.getItem('primarySaturation') || '100'));
   const [primaryLightness, setPrimaryLightness] = useState(() => parseInt(localStorage.getItem('primaryLightness') || '45'));
 
   useEffect(() => {
     const syncColor = () => {
-      setPrimaryHue(parseInt(localStorage.getItem('primaryHue') || '35'));
+      setPrimaryHue(parseInt(localStorage.getItem('primaryHue') || '15'));
       setPrimarySaturation(parseInt(localStorage.getItem('primarySaturation') || '100'));
       setPrimaryLightness(parseInt(localStorage.getItem('primaryLightness') || '45'));
     };
@@ -85,27 +85,27 @@ export default function RegisterPage() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
+      className="min-h-screen flex items-center justify-center p-4 relative overflow-y-auto scrollbar-hide"
       style={{
         background: `linear-gradient(135deg, ${primaryDarker} 0%, ${primaryDark} 50%, ${primaryColor} 100%)`
       }}
     >
       {/* Decorative background elements */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-white/5 blur-[100px] pointer-events-none"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-black/20 blur-[100px] pointer-events-none"></div>
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-md bg-white/5 blur-[100px] pointer-events-none"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-md bg-black/20 blur-[100px] pointer-events-none"></div>
 
       <div className="w-full max-w-[420px] relative z-10 py-6">
         <div className="text-center mb-8">
-          <img src={`${import.meta.env.BASE_URL}CV.AULIA.png`} alt="Logo" className="h-20 sm:h-24 w-auto mx-auto object-contain mb-4 drop-shadow-2xl" />
+          <img src={`${import.meta.env.BASE_URL}elproject.webp`} alt="Logo" className="h-20 sm:h-24 w-auto mx-auto object-contain mb-4 drop-shadow-2xl" />
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-widest drop-shadow-lg">PENDAFTARAN SALES</h1>
-          <p className="text-white/80 mt-2 text-sm font-medium tracking-wide">Buat Akun baru untuk mengelola pekerjaan anda</p>
+
         </div>
 
         <div className="relative group">
           {/* Subtle glow behind card */}
-          <div className="absolute -inset-1 bg-gradient-to-r from-white/20 to-white/0 rounded-[2rem] blur opacity-30 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
+          <div className="absolute -inset-1 bg-gradient-to-r from-white/20 to-white/0 rounded-sm blur opacity-30 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
 
-          <div className="relative bg-white/10 backdrop-blur-2xl rounded-[2rem] border border-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] p-6 sm:p-8">
+          <div className="relative bg-white/10 backdrop-blur-2xl rounded-sm border border-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] p-6 sm:p-8">
             <form onSubmit={handleSubmit} className="space-y-4">
 
               <div className="space-y-1.5">
@@ -117,7 +117,7 @@ export default function RegisterPage() {
                     placeholder="Contoh: Budi Santoso"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="h-11 pl-11 bg-white/5 border-white/10 text-white placeholder:text-white/40 rounded-xl focus:bg-white/10 focus:border-white/30 focus:ring-4 focus:ring-white/10 focus-visible:ring-0 focus-visible:border-white/30 focus-visible:ring-offset-0 transition-all duration-300"
+                    className="h-11 pl-11 bg-white/5 border-white/10 text-white placeholder:text-white/40 rounded-sm focus:bg-white/10 focus:border-white/30 focus:ring-4 focus:ring-white/10 focus-visible:ring-0 focus-visible:border-white/30 focus-visible:ring-offset-0 transition-all duration-300"
                     required
                   />
                 </div>
@@ -132,7 +132,7 @@ export default function RegisterPage() {
                     placeholder="email@anda.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="h-11 pl-11 bg-white/5 border-white/10 text-white placeholder:text-white/40 rounded-xl focus:bg-white/10 focus:border-white/30 focus:ring-4 focus:ring-white/10 focus-visible:ring-0 focus-visible:border-white/30 focus-visible:ring-offset-0 transition-all duration-300"
+                    className="h-11 pl-11 bg-white/5 border-white/10 text-white placeholder:text-white/40 rounded-sm focus:bg-white/10 focus:border-white/30 focus:ring-4 focus:ring-white/10 focus-visible:ring-0 focus-visible:border-white/30 focus-visible:ring-offset-0 transition-all duration-300"
                     autoComplete="email"
                     required
                   />
@@ -148,7 +148,7 @@ export default function RegisterPage() {
                     placeholder="08123456789"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                    className="h-11 pl-11 bg-white/5 border-white/10 text-white placeholder:text-white/40 rounded-xl focus:bg-white/10 focus:border-white/30 focus:ring-4 focus:ring-white/10 focus-visible:ring-0 focus-visible:border-white/30 focus-visible:ring-offset-0 transition-all duration-300"
+                    className="h-11 pl-11 bg-white/5 border-white/10 text-white placeholder:text-white/40 rounded-sm focus:bg-white/10 focus:border-white/30 focus:ring-4 focus:ring-white/10 focus-visible:ring-0 focus-visible:border-white/30 focus-visible:ring-offset-0 transition-all duration-300"
                     required
                   />
                 </div>
@@ -163,7 +163,7 @@ export default function RegisterPage() {
                     placeholder="Minimal 6 karakter"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="h-11 pl-11 pr-12 bg-white/5 border-white/10 text-white placeholder:text-white/40 rounded-xl focus:bg-white/10 focus:border-white/30 focus:ring-4 focus:ring-white/10 focus-visible:ring-0 focus-visible:border-white/30 focus-visible:ring-offset-0 transition-all duration-300"
+                    className="h-11 pl-11 pr-12 bg-white/5 border-white/10 text-white placeholder:text-white/40 rounded-sm focus:bg-white/10 focus:border-white/30 focus:ring-4 focus:ring-white/10 focus-visible:ring-0 focus-visible:border-white/30 focus-visible:ring-offset-0 transition-all duration-300"
                     required
                     minLength={6}
                   />
@@ -187,7 +187,7 @@ export default function RegisterPage() {
                     placeholder="Ketik ulang password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="h-11 pl-11 pr-12 bg-white/5 border-white/10 text-white placeholder:text-white/40 rounded-xl focus:bg-white/10 focus:border-white/30 focus:ring-4 focus:ring-white/10 focus-visible:ring-0 focus-visible:border-white/30 focus-visible:ring-offset-0 transition-all duration-300"
+                    className="h-11 pl-11 pr-12 bg-white/5 border-white/10 text-white placeholder:text-white/40 rounded-sm focus:bg-white/10 focus:border-white/30 focus:ring-4 focus:ring-white/10 focus-visible:ring-0 focus-visible:border-white/30 focus-visible:ring-offset-0 transition-all duration-300"
                     required
                     minLength={6}
                   />
@@ -204,7 +204,7 @@ export default function RegisterPage() {
 
               <Button
                 type="submit"
-                className="w-full h-12 mt-6 rounded-xl border border-white/20 text-white font-semibold text-base shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300"
+                className="w-full h-12 mt-6 rounded-sm border border-white/20 text-white font-semibold text-base shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300"
                 style={{ backgroundColor: primaryColor }}
                 disabled={isSubmitting}
               >

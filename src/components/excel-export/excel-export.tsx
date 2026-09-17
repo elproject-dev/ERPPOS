@@ -117,8 +117,7 @@ const CENTER_ALIGNED_KEYS = new Set([
   "No.Transaksi",
   "ID Pelanggan",
   "No. Telepon",
-  "Kecamatan",
-  "Kabupaten",
+  "Kodepos",
   "Qty",
   "Qty Retur",
   "Diskon",
@@ -394,7 +393,7 @@ function transformTransactions(
 
   const storedBranch = typeof window !== "undefined" ? localStorage.getItem('storeBranch') : null;
   const storedAddress = typeof window !== "undefined" ? localStorage.getItem('storeAddress') : null;
-  const actualBranchName = selectedOutletName || (typeof storedBranch === 'string' && storedBranch.trim()) || (typeof storedAddress === 'string' && storedAddress.trim()) || branchName || "CV.AULIA USAHA";
+  const actualBranchName = selectedOutletName || (typeof storedBranch === 'string' && storedBranch.trim()) || (typeof storedAddress === 'string' && storedAddress.trim()) || branchName || "EL PROJECT";
 
   transactions.forEach((trx, trxIndex) => {
     const stripe = trxIndex % 2;
@@ -800,7 +799,7 @@ export function DownloadExcelDialog({
   open,
   onOpenChange,
   transactions,
-  branchName = "CV.AULIA USAHA",
+  branchName = "EL PROJECT",
   cashierDefault = "Admin Kasir",
   isAdmin = true,
   outlets = [],

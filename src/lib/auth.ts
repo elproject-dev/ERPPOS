@@ -6,10 +6,10 @@ export type LoginMode = "admin" | "kasir";
 export type UserRole = "admin" | "kasir";
 
 // Admin email for admin mode
-export const ADMIN_EMAIL = "cvauliausaha@gmail.com";
+export const ADMIN_EMAIL = "elproject.dev@gmail.com";
 
 // Kasir default email (can be customized)
-export const KASIR_EMAIL = "kasir@cvauliausaha.com";
+export const KASIR_EMAIL = "kasir@elproject.com";
 
 export interface AuthUser {
   id: string;

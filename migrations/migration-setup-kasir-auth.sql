@@ -9,7 +9,7 @@
 --   Authentication → Users → Add user → Create new user
 --
 -- Contoh Kasir 1:
---   Email   : kasir1@sbagiamu.com
+--   Email   : kasir1@elproject.com
 --   Password: (password kuat)
 --   ✓ Auto Confirm User
 --
@@ -20,7 +20,7 @@
 --   }
 --
 -- Contoh Kasir 2:
---   Email   : kasir2@sbagiamu.com
+--   Email   : kasir2@elproject.com
 --   Password: (password kuat)
 --   User Metadata:
 --   {
@@ -33,8 +33,8 @@
 --   "kasir"  atau  "sales"
 --
 -- Admin (lihat semua data):
---   Email: sbagiamu.pos@gmail.com
---   Metadata: { "name": "Admin SBAGIAMU", "role": "admin" }
+--   Email: elproject.pos@gmail.com
+--   Metadata: { "name": "Admin elproject", "role": "admin" }
 --
 -- Setelah login:
 --   • Kasir hanya melihat produk/kategori/transaksi miliknya

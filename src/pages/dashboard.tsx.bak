@@ -636,7 +636,7 @@ export default function DashboardPage() {
         open={showDownloadDialog}
         onOpenChange={setShowDownloadDialog}
         transactions={transactionsForExport}
-        branchName="SBAGIAMU"
+        branchName="elproject"
         cashierDefault="Admin Kasir"
         isAdmin={isAdminSuper}
         outlets={outlets || []}

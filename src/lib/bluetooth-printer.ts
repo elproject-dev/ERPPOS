@@ -123,7 +123,7 @@ export async function connectToPrinter(macAddress: string): Promise<{ success: b
         BT.list((devices: any[]) => resolve(devices || []), (e: any) => reject(e));
       });
 
-      const matchedDevice = devices.find((device: any) => 
+      const matchedDevice = devices.find((device: any) =>
         (device.address || device.id || '').toLowerCase() === macAddress.toLowerCase()
       );
 
@@ -187,9 +187,9 @@ export async function printRaw(data: string): Promise<boolean> {
   if (isTauri()) {
     try {
       const { invoke } = await import('@tauri-apps/api/core');
-      await invoke('print_bluetooth_data', { 
-        address: printerDevice.macAddress, 
-        data: Array.from(bytes) 
+      await invoke('print_bluetooth_data', {
+        address: printerDevice.macAddress,
+        data: Array.from(bytes)
       });
       return true;
     } catch (error) {
@@ -224,7 +224,7 @@ export function formatReceipt(transaction: any): string {
   console.log('formatReceipt called with transaction keys:', Object.keys(transaction || {}));
 
   const {
-    storeName = 'CV.AULIA USAHA',
+    storeName = 'EL PROJECT',
     storeAddress = '',
     storePhone = '',
     customerName,
@@ -274,7 +274,7 @@ export function formatReceipt(transaction: any): string {
   receipt += ESC_POS.ALIGN_CENTER;
 
   // Tampilkan nama perusahaan dari pengaturan printer di bawah logo (besar, tanpa jarak kosong tambahan)
-  const bluetoothStoreName = localStorage.getItem('bluetoothStoreName') || 'CV.AULIA USAHA';
+  const bluetoothStoreName = localStorage.getItem('bluetoothStoreName') || 'EL PROJECT';
   receipt += ESC_POS.DOUBLE_HEIGHT;
   receipt += `${bluetoothStoreName}\n`;
   receipt += ESC_POS.NORMAL_SIZE;
@@ -305,13 +305,13 @@ export function formatReceipt(transaction: any): string {
   items?.forEach((item: any) => {
     const name = item.productName || '-';
     const qty = item.quantity || 0;
-    
+
     let price = item.price || 0;
     if (item.unitPrice !== undefined) {
       const activeDiscount = item.quantity >= (item.uomMinQty || 1) ? (item.uomDiscountAmount || 0) : 0;
       price = item.unitPrice - activeDiscount;
     }
-    
+
     const itemTotal = qty * price;
 
     const unit = item.unitName || item.unit_name || 'pcs';
@@ -325,13 +325,13 @@ export function formatReceipt(transaction: any): string {
     const PRICE_WIDTH = 9;
 
     const qtyPadded = qtyStr.substring(0, QTY_WIDTH).padEnd(QTY_WIDTH, ' ');
-    
+
     let displayName = name;
     if (displayName.length > NAME_WIDTH) {
       displayName = displayName.substring(0, NAME_WIDTH - 3) + '...';
     }
     const namePadded = displayName.padEnd(NAME_WIDTH, ' ');
-    
+
     const pricePadded = priceStr.padStart(PRICE_WIDTH, ' ');
 
     const leftSide = `${qtyPadded} ${namePadded} ${pricePadded}`;
@@ -367,7 +367,7 @@ export function formatReceipt(transaction: any): string {
         finalGlobalAmount = Math.floor((subtotal || 0) * (finalGlobalPercent / 100));
         hasGlobal = true;
       }
-      
+
       const adminMatch = note.match(/Diskon Admin (\d+(\.\d+)?)%/);
       if (adminMatch) {
         finalAdminPercent = parseFloat(adminMatch[1]);
@@ -376,7 +376,7 @@ export function formatReceipt(transaction: any): string {
       } else if (note.includes('Diskon Admin')) {
         hasAdminNote = true;
       }
-      
+
       finalManualAmount = hasGlobal ? (discount - finalGlobalAmount) : discount;
     } else {
       hasAdminNote = finalManualAmount > 0;
@@ -384,20 +384,20 @@ export function formatReceipt(transaction: any): string {
 
     // Output separated discounts if possible
     if (hasGlobal && !hasAdminNote && finalManualAmount <= 0) {
-       // Only global
-       receipt += formatLine(`Diskon Global (${finalGlobalPercent}%)`, `-${formatPrice(finalGlobalAmount)}`, PAPER_WIDTH) + '\n';
+      // Only global
+      receipt += formatLine(`Diskon Global (${finalGlobalPercent}%)`, `-${formatPrice(finalGlobalAmount)}`, PAPER_WIDTH) + '\n';
     } else if (hasGlobal || hasAdminNote) {
-       if (hasGlobal && finalGlobalAmount > 0) {
-          receipt += formatLine(`Diskon Global (${finalGlobalPercent}%)`, `-${formatPrice(finalGlobalAmount)}`, PAPER_WIDTH) + '\n';
-       }
-       if (finalManualAmount > 0) {
-          const adminLabel = `Diskon Admin${isPercentAdmin && finalAdminPercent > 0 ? ` (${finalAdminPercent}%)` : ''}`;
-          receipt += formatLine(adminLabel, `-${formatPrice(finalManualAmount)}`, PAPER_WIDTH) + '\n';
-       }
+      if (hasGlobal && finalGlobalAmount > 0) {
+        receipt += formatLine(`Diskon Global (${finalGlobalPercent}%)`, `-${formatPrice(finalGlobalAmount)}`, PAPER_WIDTH) + '\n';
+      }
+      if (finalManualAmount > 0) {
+        const adminLabel = `Diskon Admin${isPercentAdmin && finalAdminPercent > 0 ? ` (${finalAdminPercent}%)` : ''}`;
+        receipt += formatLine(adminLabel, `-${formatPrice(finalManualAmount)}`, PAPER_WIDTH) + '\n';
+      }
     } else {
-       // Fallback for old transaction
-       const label = `Diskon${discountNote && !discountNote.includes('Diskon Global') && !discountNote.includes('Diskon Admin') ? ` (${discountNote})` : ''}`;
-       receipt += formatLine(label, `-${formatPrice(discount)}`, PAPER_WIDTH) + '\n';
+      // Fallback for old transaction
+      const label = `Diskon${discountNote && !discountNote.includes('Diskon Global') && !discountNote.includes('Diskon Admin') ? ` (${discountNote})` : ''}`;
+      receipt += formatLine(label, `-${formatPrice(discount)}`, PAPER_WIDTH) + '\n';
     }
   }
 
@@ -444,7 +444,7 @@ export function formatReceipt(transaction: any): string {
 
   // Footer (Langsung tanpa newline)
   receipt += ESC_POS.ALIGN_CENTER;
-  
+
   if (footerMessage) {
     receipt += `${footerMessage}\n`;
   }
@@ -454,7 +454,7 @@ export function formatReceipt(transaction: any): string {
   if (footerMessage3) {
     receipt += `\n${footerMessage3}\n\n`; // Tambah spasi kosong 1 baris di bawahnya agar tidak terpotong
   }
-  
+
   receipt += ESC_POS.FEED_3_LINES;
 
   // Potong kertas
@@ -632,7 +632,7 @@ export async function printReceipt(transaction: any): Promise<boolean> {
     // Tambahkan logo di awal
     let finalReceipt = '';
     try {
-      const logoData = await imageToEscPosBitmap(`${import.meta.env.BASE_URL}CV.AULIA.png`, 80);
+      const logoData = await imageToEscPosBitmap(`${import.meta.env.BASE_URL}CV.elproject.png`, 80);
       finalReceipt = logoData;
       console.log('Logo berhasil ditambahkan');
     } catch (logoError) {
@@ -835,7 +835,7 @@ function formatWaktuReceipt(date: Date): string {
 
 /**
  * Generate receipt dalam format raw text untuk thermal printer
- * Sesuai dengan konsep nota CV.AULIA USAHA
+ * Sesuai dengan konsep nota EL PROJECT
  */
 export interface ReceiptItem {
   productName: string;
@@ -885,7 +885,7 @@ export interface ReceiptData {
 /**
  * Generate raw receipt text
  * Format sesuai contoh:
- *          CV.AULIA USAHA
+ *          EL PROJECT
  *   jl.condong catur no 13 yk
  * ________________________________
  * No.ID :               INV-A00001
@@ -893,7 +893,7 @@ export interface ReceiptData {
  */
 export function generateReceiptRaw(data: ReceiptData): string {
   const {
-    storeName = 'CV.AULIA USAHA',
+    storeName = 'EL PROJECT',
     storeAddress = '',
     invoiceNumber,
     date = new Date(),
@@ -967,13 +967,13 @@ export function generateReceiptRaw(data: ReceiptData): string {
     const PRICE_WIDTH = 9;
 
     const qtyPadded = qtyStr.padEnd(QTY_WIDTH, ' ');
-    
+
     let displayName = productName || '-';
     if (displayName.length > NAME_WIDTH) {
       displayName = displayName.substring(0, NAME_WIDTH - 3) + '...';
     }
     const namePadded = displayName.padEnd(NAME_WIDTH, ' ');
-    
+
     const pricePadded = priceStr.padStart(PRICE_WIDTH, ' ');
 
     const leftSide = `${qtyPadded}${namePadded} ${pricePadded}`;
@@ -1026,7 +1026,7 @@ export function generateReceiptRaw(data: ReceiptData): string {
   if (footerMessage3) {
     receipt += `\n${centerText(footerMessage3, PAPER_WIDTH)}\n\n`; // Tambah spasi kosong 1 baris di bawahnya agar tidak terpotong
   }
-  
+
   receipt += '\n';
   receipt += `${DECO_SEPARATOR}\n`;
   receipt += `\n\n`;

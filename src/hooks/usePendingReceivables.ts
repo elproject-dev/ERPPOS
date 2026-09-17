@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { applyTenantFilter } from "@/lib/tenant";
 
 export function usePendingReceivablesCount() {
   const { user } = useAuth();
@@ -12,16 +13,12 @@ export function usePendingReceivablesCount() {
     queryFn: async () => {
       if (!user) return 0;
 
-      const ownerIdStr = localStorage.getItem('ownerId') || localStorage.getItem('tenantOwnerId') || '';
-      let query = supabase
-        .from('transactions')
-        .select('id', { count: 'exact', head: true })
-        .not('due_date', 'is', null)
-        .neq('payment_status', 'paid');
-
-      if (ownerIdStr) {
-        query = query.eq('owner_id', ownerIdStr);
-      }
+      const query = applyTenantFilter(
+        supabase
+          .from('transaction_payments')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'pending')
+      );
 
       const { count, error } = await query;
       if (error || count === null) return 0;
@@ -39,7 +36,7 @@ export function usePendingReceivablesCount() {
       .channel(channelName)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "transactions" },
+        { event: "*", schema: "public", table: "transaction_payments" },
         () => {
           queryClient.invalidateQueries({ queryKey: ["pendingReceivablesCount"] });
         }

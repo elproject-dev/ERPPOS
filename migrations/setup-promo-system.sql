@@ -14,7 +14,7 @@ AS $$
     lower(auth.jwt() -> 'user_metadata' ->> 'role') = 'admin',
     false
   )
-  OR lower(auth.jwt() ->> 'email') = 'sbagiamu.pos@gmail.com';
+  OR lower(auth.jwt() ->> 'email') = 'elproject.pos@gmail.com';
 $$;
 
 -- Function to automatically set owner_id

@@ -111,13 +111,13 @@ export default function SettingsPage() {
   const [fontSize, setFontSize] = useState(() => localStorage.getItem('fontSize') || 'medium');
 
   // Store Settings
-  const [storeName, setStoreName] = useState(() => localStorage.getItem('storeName') || 'CV.AULIA USAHA');
+  const [storeName, setStoreName] = useState(() => localStorage.getItem('storeName') || 'EL PROJECT DEV');
   const [storeAddress, setStoreAddress] = useState(() => localStorage.getItem('storeAddress') || 'Jl. Condongcatur No.123 Yk');
   const [storePhone, setStorePhone] = useState(() => localStorage.getItem('storePhone') || '');
   const [storeBankName, setStoreBankName] = useState(() => localStorage.getItem('storeBankName') || 'BCA');
   const [storeBankAccount, setStoreBankAccount] = useState(() => localStorage.getItem('storeBankAccount') || '4451377137');
-  const [storeBankAccountName, setStoreBankAccountName] = useState(() => localStorage.getItem('storeBankAccountName') || 'AULIA USAHA');
-  const [bluetoothStoreName, setBluetoothStoreName] = useState(() => localStorage.getItem('bluetoothStoreName') || 'CV.AULIA USAHA');
+  const [storeBankAccountName, setStoreBankAccountName] = useState(() => localStorage.getItem('storeBankAccountName') || 'EL PROJECT');
+  const [bluetoothStoreName, setBluetoothStoreName] = useState(() => localStorage.getItem('bluetoothStoreName') || 'EL PROJECT DEV');
   const [autoPrint, setAutoPrint] = useState(() => localStorage.getItem('autoPrint') !== 'false');
   const [showFooter, setShowFooter] = useState(() => localStorage.getItem('showFooter') !== 'false');
   const [footerMessage, setFooterMessage] = useState(() => localStorage.getItem('footerMessage') || '');
@@ -142,13 +142,13 @@ export default function SettingsPage() {
   // Populate from DB when loaded (only once to prevent typing flash back)
   useEffect(() => {
     if (storeSettingsData && !hasPopulated.current) {
-      setStoreName(storeSettingsData.name || 'CV.AULIA USAHA');
+      setStoreName(storeSettingsData.name || 'EL PROJECT');
       setStoreAddress(storeSettingsData.address || '');
       setStorePhone(storeSettingsData.phone || '');
       setStoreBankName(storeSettingsData.bank_name || 'BCA');
       setStoreBankAccount(storeSettingsData.bank_account || '');
       setStoreBankAccountName(storeSettingsData.bank_account_name || '');
-      setBluetoothStoreName(storeSettingsData.bluetooth_store_name || storeSettingsData.name || 'CV.AULIA USAHA');
+      setBluetoothStoreName(storeSettingsData.bluetooth_store_name || storeSettingsData.name || 'EL PROJECT');
       setShowFooter(storeSettingsData.show_footer ?? true);
       setFooterMessage(storeSettingsData.footer_message || '');
       setFooterMessage2(storeSettingsData.footer_message2 || '');
@@ -183,6 +183,22 @@ export default function SettingsPage() {
     if (!hasPopulated.current) return; // don't auto-save before populating
     if (isOutletAssigned) return; // don't auto-save if kasir
 
+    // Don't auto-save if data is identical to what's in DB
+    const isUnchanged = storeSettingsData &&
+      storeName === (storeSettingsData.name || 'EL PROJECT') &&
+      storeAddress === (storeSettingsData.address || '') &&
+      storePhone === (storeSettingsData.phone || '') &&
+      storeBankName === (storeSettingsData.bank_name || 'BCA') &&
+      storeBankAccount === (storeSettingsData.bank_account || '') &&
+      storeBankAccountName === (storeSettingsData.bank_account_name || '') &&
+      bluetoothStoreName === (storeSettingsData.bluetooth_store_name || storeSettingsData.name || 'EL PROJECT') &&
+      showFooter === (storeSettingsData.show_footer ?? true) &&
+      footerMessage === (storeSettingsData.footer_message || '') &&
+      footerMessage2 === (storeSettingsData.footer_message2 || '') &&
+      footerMessage3 === (storeSettingsData.footer_message3 || '');
+
+    if (isUnchanged) return;
+
     const delayDebounceFn = setTimeout(() => {
       updateStoreSettings({
         name: storeName,
@@ -202,10 +218,10 @@ export default function SettingsPage() {
     return () => clearTimeout(delayDebounceFn);
   }, [storeName, storeAddress, storePhone, storeBankName, storeBankAccount, storeBankAccountName, bluetoothStoreName, showFooter, footerMessage, footerMessage2, footerMessage3, storeSettingsLoading]);
 
-  // Primary Color (HSL) - Default: hsl(200, 100%, 22%) - Blue
-  const [primaryHue, setPrimaryHue] = useState(() => parseInt(localStorage.getItem('primaryHue') || '200'));
+  // Primary Color (HSL) - Default: hsl(15, 100%, 45%) - Red-Orange
+  const [primaryHue, setPrimaryHue] = useState(() => parseInt(localStorage.getItem('primaryHue') || '15'));
   const [primarySaturation, setPrimarySaturation] = useState(() => parseInt(localStorage.getItem('primarySaturation') || '100'));
-  const [primaryLightness, setPrimaryLightness] = useState(() => parseInt(localStorage.getItem('primaryLightness') || '22'));
+  const [primaryLightness, setPrimaryLightness] = useState(() => parseInt(localStorage.getItem('primaryLightness') || '45'));
 
   // Printer
   const [bluetoothPrinterMac, setBluetoothPrinterMac] = useState(() => localStorage.getItem('bluetoothPrinterMac') || '');
@@ -235,13 +251,26 @@ export default function SettingsPage() {
     localStorage.setItem('notifyPrint', notifyPrint.toString());
     localStorage.setItem('bluetoothPrinterMac', bluetoothPrinterMac);
 
+    // Save Store Settings to local storage as fallback
+    localStorage.setItem('storeName', storeName);
+    localStorage.setItem('storeAddress', storeAddress);
+    localStorage.setItem('storePhone', storePhone);
+    localStorage.setItem('storeBankName', storeBankName);
+    localStorage.setItem('storeBankAccount', storeBankAccount);
+    localStorage.setItem('storeBankAccountName', storeBankAccountName);
+    localStorage.setItem('showFooter', showFooter.toString());
+    localStorage.setItem('footerMessage', footerMessage);
+    localStorage.setItem('footerMessage2', footerMessage2);
+    localStorage.setItem('footerMessage3', footerMessage3);
+    localStorage.setItem('bluetoothStoreName', bluetoothStoreName);
+
     // Apply dark mode
     if (darkMode) {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
-  }, [autoPrint, darkMode, notifyTransactionSuccess, notifyPrint, bluetoothPrinterMac]);
+  }, [autoPrint, darkMode, notifyTransactionSuccess, notifyPrint, bluetoothPrinterMac, storeName, storeAddress, storePhone, storeBankName, storeBankAccount, storeBankAccountName, showFooter, footerMessage, footerMessage2, footerMessage3, bluetoothStoreName]);
 
   // Auto-save: Primary Color (HSL)
   useEffect(() => {
@@ -357,7 +386,7 @@ export default function SettingsPage() {
       if (!opened) {
         toast({
           title: "Hanya tersedia di Android",
-          description: "Buka Pengaturan > Aplikasi > CV.AULIA USAHA > Izin secara manual.",
+          description: "Buka Pengaturan > Aplikasi > EL PROJECT > Izin secara manual.",
         });
       }
     } catch (error) {
@@ -373,16 +402,15 @@ export default function SettingsPage() {
 
   return (
     <Sidebar>
-      <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-900">
+      <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-950" style={{ '--radius': '0px' } as React.CSSProperties}>
         {/* Header */}
-        <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
-            <Settings className="w-6 h-6 text-primary animate-pulse" />
-            <span>Pengaturan</span>
+        <div className="px-4 py-2 sm:px-6 sm:py-3 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
+          <h1 className="text-xl sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
+            Pengaturan
           </h1>
         </div>
 
-        <div className="p-5 sm:p-6 flex-1 overflow-y-auto">
+        <div className="p-5 sm:p-6 flex-1 overflow-y-auto scrollbar-hide">
           <div className="max-w-3xl mx-auto space-y-5">
             {/* Profile Settings */}
             <CollapsibleCard id="profile" title="Profil Pengguna" icon={User} description="Informasi profil dan foto Anda" isOpen={openCard === 'profile'} onToggle={toggleCard}>
@@ -556,7 +584,7 @@ export default function SettingsPage() {
                   <div className="bg-slate-50 dark:bg-slate-800 p-4 text-sm font-medium text-slate-900 dark:text-slate-100">
                     Perangkat Ditemukan ({bluetoothDevices.length})
                   </div>
-                  <div className="max-h-48 overflow-y-auto">
+                  <div className="max-h-48 overflow-y-auto scrollbar-hide">
                     {bluetoothDevices.map((device, index) => (
                       <div
                         key={index}
@@ -864,13 +892,13 @@ export default function SettingsPage() {
                 {/* App Info */}
                 <div className="flex items-center gap-4 p-5 bg-gradient-to-r from-primary/10 to-primary/5 dark:bg-none dark:bg-black rounded-xl">
                   <div className="flex-1">
-                    <h3 className="font-bold text-lg text-slate-900 dark:text-white">CV.AULIA USAHA</h3>
+                    <h3 className="font-bold text-lg text-slate-900 dark:text-white">EL PROJECT</h3>
                     <p className="text-sm text-slate-500 dark:text-slate-400">Point of Sale System</p>
                     <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Versi {APP_VERSION}</p>
                   </div>
                   <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center p-2 animate-logo-ring">
                     <img
-                      src={`${import.meta.env.BASE_URL}CV.AULIA.png`}
+                      src={`${import.meta.env.BASE_URL}elproject.webp`}
                       alt="Logo"
                       className="w-12 h-12 object-contain"
                     />
@@ -880,7 +908,7 @@ export default function SettingsPage() {
                 {/* Footer */}
                 <div className="text-center pt-4 border-t border-slate-100 dark:border-slate-700">
                   <p className="text-xs text-slate-400 dark:text-slate-500">
-                    &copy; {new Date().getFullYear()} CV.AULIA USAHA. All rights reserved.
+                    EL PROJECT DEVELOPMENT
                   </p>
                 </div>
               </div>

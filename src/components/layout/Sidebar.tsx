@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Calculator, LayoutDashboard, Package, Users, History, Settings, LogOut, Wallet, UserCog, Tag, User, Megaphone, ArrowRightLeft, Undo2, RefreshCcw, CalendarDays, Truck } from "lucide-react";
 import { TbCoin } from "react-icons/tb";
+import { FaWhatsapp } from "react-icons/fa6";
 import { cn } from "@/lib/utils";
 import { BottomNavigation } from "./BottomNavigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,14 +20,14 @@ const ALL_LINKS = [
   { href: "/pos", label: "Kasir", icon: Calculator, adminOnly: false, kasirOnly: true },
   { href: "/products", label: "Produk", icon: Package, adminOnly: false },
   { href: "/customers", label: "Pelanggan", icon: Users, adminOnly: false },
-  { href: "/visit-schedule", label: "Jadwal Kunjungan", icon: CalendarDays, adminOnly: false },
   { href: "/staff", label: "Staff", icon: UserCog, adminOnly: true },
   { href: "/transactions", label: "Riwayat Transaksi", icon: History, adminOnly: false },
   { href: "/expenses", label: "Pengeluaran", icon: Wallet, adminOnly: false },
   { href: "/receivables", label: "Piutang", icon: TbCoin, adminOnly: false },
   { href: "/suppliers", label: "Suplier", icon: Truck, adminOnly: true },
-  { href: "/promo", label: "Promo", icon: Megaphone, adminOnly: true },
   { href: "/customer-returns", label: "Retur Pelanggan", icon: RefreshCcw, adminOnly: false },
+  { href: "/visit-schedule", label: "Jadwal Kunjungan", icon: CalendarDays, adminOnly: false },
+  { href: "/promo", label: "Promo", icon: FaWhatsapp, adminOnly: true },
   { href: "/settings", label: "Pengaturan", icon: Settings, adminOnly: false },
 ];
 
@@ -38,13 +39,13 @@ interface SidebarProps {
 export function Sidebar({ children, className }: SidebarProps) {
   const [location, setLocation] = useLocation();
   const { user, logout } = useAuth();
-  const [, setStoreName] = useState(() => localStorage.getItem('storeName') || 'CV.AULIA USAHA');
+  const [, setStoreName] = useState(() => localStorage.getItem('storeName') || 'EL PROJECT');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   // Sync primary color to CSS variables on mount
   useEffect(() => {
     const syncPrimaryColor = () => {
-      const primaryHue = parseInt(localStorage.getItem('primaryHue') || '35');
+      const primaryHue = parseInt(localStorage.getItem('primaryHue') || '15');
       const primarySaturation = parseInt(localStorage.getItem('primarySaturation') || '100');
       const primaryLightness = parseInt(localStorage.getItem('primaryLightness') || '45');
       const root = document.documentElement;
@@ -75,7 +76,7 @@ export function Sidebar({ children, className }: SidebarProps) {
 
   useEffect(() => {
     const syncStoreName = () => {
-      setStoreName(localStorage.getItem('storeName') || 'CV.AULIA USAHA');
+      setStoreName(localStorage.getItem('storeName') || 'EL PROJECT');
     };
 
     syncStoreName();
@@ -135,7 +136,7 @@ export function Sidebar({ children, className }: SidebarProps) {
       <aside className="w-16 bg-sidebar text-sidebar-foreground border-r border-sidebar-border hidden lg:flex flex-col flex-shrink-0 transition-all duration-300">
         <div className="h-16 flex items-center justify-center border-b border-sidebar-border">
           <img
-            src={`${import.meta.env.BASE_URL}CV.AULIA.png`}
+            src={`${import.meta.env.BASE_URL}elproject.webp`}
             alt="Store Logo"
             className="h-8 w-8 object-contain"
           />

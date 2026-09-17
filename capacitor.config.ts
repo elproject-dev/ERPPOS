@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.cvauliausaha.app',
-  appName: 'CV.AULIA USAHA',
+  appId: 'com.elproject.app',
+  appName: 'EL PROJECT',
   webDir: 'dist',
   server: {
     androidScheme: 'https'

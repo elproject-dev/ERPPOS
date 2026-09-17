@@ -69,7 +69,7 @@ async function runRelease() {
     }
 
     // 6. Bersihkan file lama di folder android
-    const fileName = `CVAuliaUsaha_v.${version}.apk`;
+    const fileName = `elproject_v.${version}.apk`;
     const storagePath = `android/${fileName}`;
 
     console.log(`🗑️ Membersihkan APK versi lama di Supabase...`);

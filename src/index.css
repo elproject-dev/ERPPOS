@@ -1,4 +1,8 @@
+@import "@fontsource-variable/outfit";
+
 /* tailwindcss-animate is loaded via tailwind.config plugin */
+
+@custom-variant dark (&:is(.dark *));
 
 @font-face {
   font-family: 'Google Sans Flex';
@@ -12,17 +16,38 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Force font globally */
+/* Lock root layout & force font globally */
 html,
 body,
+#root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
 * {
-  font-family: 'Google Sans Flex', sans-serif !important;
+  font-family: 'Outfit Variable', sans-serif !important;
+}
+
+/* Hide number input spinners / scroll arrows */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -webkit-appearance: textfield;
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 :root {
-  --app-font-sans: 'Google Sans Flex', sans-serif;
-  --app-font-serif: 'Google Sans Flex', serif;
-  --app-font-mono: 'Google Sans Flex', monospace;
+  --app-font-sans: 'Outfit Variable', sans-serif;
+  --app-font-serif: 'Outfit Variable', serif;
+  --app-font-mono: 'Outfit Variable', monospace;
 
   --button-outline: rgba(0, 0, 0, .10);
   --badge-outline: rgba(0, 0, 0, .05);
@@ -48,7 +73,7 @@ body,
   --popover-foreground: 222 47% 11%;
   --popover-border: 214.3 31.8% 91.4%;
 
-  --primary: 35 100% 45%;
+  --primary: 15 100% 45%;
   --primary-foreground: 0 0% 100%;
   --secondary: 210 40% 96.1%;
   --secondary-foreground: 222 47% 11.2%;
@@ -630,6 +655,9 @@ aside,
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
+  html {
+    @apply font-sans;
+  }
 }
 
 /* Custom Date Input Styling */
@@ -652,12 +680,15 @@ aside,
 
 /* Hide scrollbar but keep scrolling functionality */
 .scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
 }
 
 .scrollbar-hide::-webkit-scrollbar {
-  display: none;
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
 }
 
 /* Override browser autofill background */
@@ -669,7 +700,6 @@ input:-webkit-autofill:active {
   caret-color: currentColor !important;
   transition: background-color 5000s ease-in-out 0s !important;
 }
-
 
 /* Slim Auto-hiding scrollbar */
 .scrollbar-slim::-webkit-scrollbar {
@@ -807,4 +837,14 @@ input:-webkit-autofill:active {
   100% {
     transform: translateX(100%);
   }
+}
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: 'Outfit Variable', sans-serif;
+}
+
+/* Hilangkan efek rounded di semua pembungkus tabel */
+div:has(> [data-slot="table-container"]) {
+  border-radius: 0 !important;
 }

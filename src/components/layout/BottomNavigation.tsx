@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { Calculator, LayoutDashboard, Package, History, Menu, Users, Settings, LogOut, Tag, Wallet, User, UserCog, Megaphone, Undo2, RefreshCcw, CalendarDays, Truck } from "lucide-react";
 import { TbCoin } from "react-icons/tb";
+import { FaWhatsapp } from "react-icons/fa6";
 import { cn } from "@/lib/utils";
 import { useMemo, useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -79,8 +80,8 @@ export function BottomNavigation({ onOpenProfile }: BottomNavigationProps) {
       { href: "/expenses", label: "Pengeluaran", icon: Wallet },
       { href: "/receivables", label: "Piutang", icon: TbCoin },
       { href: "/suppliers", label: "Suplier", icon: Truck },
-      { href: "/promo", label: "Promo", icon: Megaphone },
       { href: "/customer-returns", label: "Retur", icon: RefreshCcw },
+      { href: "/promo", label: "Promo", icon: FaWhatsapp },
       { href: "/settings", label: "Pengaturan", icon: Settings },
       { href: "/logout", label: "Logout", icon: LogOut, isLogout: true },
     ];

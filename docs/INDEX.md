@@ -184,7 +184,7 @@ Start here for project overview and status:
 
 ### Installation Status
 ✅ **App**: Installed on Xiaomi Redmi Note 9 Pro  
-✅ **Package**: com.sbagiamu.app (v1.0 Debug)  
+✅ **Package**: com.elproject.app (v1.0 Debug)  
 ✅ **APK Size**: 4.41 MB  
 ✅ **Status**: Running and verified
 

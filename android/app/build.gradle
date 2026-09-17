@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "com.cvauliausaha.app"
+    namespace = "com.elproject.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.cvauliausaha.app"
+        applicationId "com.elproject.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 24
@@ -19,9 +19,9 @@ android {
     signingConfigs {
         release {
             storeFile file('release.keystore')
-            storePassword 'sbagiamu123'
-            keyAlias 'sbagiamu'
-            keyPassword 'sbagiamu123'
+            storePassword 'elproject123'
+            keyAlias 'elproject'
+            keyPassword 'elproject123'
         }
     }
     buildTypes {

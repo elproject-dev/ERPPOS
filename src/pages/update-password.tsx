@@ -93,13 +93,13 @@ export default function UpdatePasswordPage() {
   }, [setLocation, toast]);
 
   // Get custom primary color from localStorage
-  const [primaryHue, setPrimaryHue] = useState(() => parseInt(localStorage.getItem('primaryHue') || '35'));
+  const [primaryHue, setPrimaryHue] = useState(() => parseInt(localStorage.getItem('primaryHue') || '15'));
   const [primarySaturation, setPrimarySaturation] = useState(() => parseInt(localStorage.getItem('primarySaturation') || '100'));
   const [primaryLightness, setPrimaryLightness] = useState(() => parseInt(localStorage.getItem('primaryLightness') || '45'));
 
   useEffect(() => {
     const syncColor = () => {
-      setPrimaryHue(parseInt(localStorage.getItem('primaryHue') || '35'));
+      setPrimaryHue(parseInt(localStorage.getItem('primaryHue') || '15'));
       setPrimarySaturation(parseInt(localStorage.getItem('primarySaturation') || '100'));
       setPrimaryLightness(parseInt(localStorage.getItem('primaryLightness') || '45'));
     };

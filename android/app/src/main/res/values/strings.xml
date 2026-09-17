@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">CV.AULIA USAHA</string>
-    <string name="title_activity_main">CV.AULIA USAHA</string>
-    <string name="package_name">com.cvauliausaha.app</string>
-    <string name="custom_url_scheme">com.cvauliausaha.app</string>
+    <string name="app_name">EL PROJECT</string>
+    <string name="title_activity_main">EL PROJECT</string>
+    <string name="package_name">com.elproject.app</string>
+    <string name="custom_url_scheme">com.elproject.app</string>
 </resources>

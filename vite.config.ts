@@ -3,18 +3,18 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 
 export default defineConfig({
-  base: process.env.GITHUB_PAGES === "true" ? "/CV.AULIA-USAHA/" : "/",
+  base: process.env.GITHUB_PAGES === "true" ? "/elproject/" : "/",
   plugins: [react()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "src"),
-      "@workspace/api-client-react": path.resolve(__dirname, "src/mocks/api-client-react.ts"),
-      "stream": path.resolve(__dirname, "src/mocks/stream-mock.js"),
+      "@": path.resolve(import.meta.dirname, "src"),
+      "@workspace/api-client-react": path.resolve(import.meta.dirname, "src/mocks/api-client-react.ts"),
+      "stream": path.resolve(import.meta.dirname, "src/mocks/stream-mock.js"),
     },
     dedupe: ["react", "react-dom"],
   },
   build: {
-    outDir: path.resolve(__dirname, "dist"),
+    outDir: path.resolve(import.meta.dirname, "dist"),
     emptyOutDir: true,
     sourcemap: false,
     chunkSizeWarningLimit: 1000,

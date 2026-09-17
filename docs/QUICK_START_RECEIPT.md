@@ -2,7 +2,7 @@
 
 ## 📋 Overview
 
-Konsep nota print raw untuk Thermal Printer Bluetooth dengan format sesuai template Sbagiamu.
+Konsep nota print raw untuk Thermal Printer Bluetooth dengan format sesuai template elproject.
 
 **Fitur:**
 - ✅ Format 32 karakter (standar thermal printer)
@@ -74,7 +74,7 @@ import { transactionToReceiptData } from '@/lib/receipt-example';
 
 // Convert DB transaction to receipt data
 const receiptData = transactionToReceiptData(dbTransaction, {
-  storeName: 'Sbagiamu',
+  storeName: 'elproject',
   storeAddress: 'jl.condong catur no 13 yk',
 });
 
@@ -123,7 +123,7 @@ terima kasih sudah berbelanja
 ```typescript
 interface ReceiptData {
   // Header
-  storeName?: string;           // def: 'SBAGIAMU'
+  storeName?: string;           // def: 'elproject'
   storeAddress?: string;        // optional
 
   // Transaction

@@ -21,7 +21,7 @@ async function prompt(question) {
 
 async function run() {
   console.log('\n=======================================');
-  console.log('   CV.AULIA-USAHA VERSION MANAGER');
+  console.log('   EL PROJECT DEVELOPMENT');
   console.log('=======================================');
 
   // Baca isi file saat ini

@@ -17,7 +17,7 @@ import {
 
 export function exampleBasicReceipt(): string {
   const receiptData: ReceiptData = {
-    storeName: 'CV.AULIA USAHA',
+    storeName: 'EL PROJECT',
     storeAddress: 'jl.condong catur no 13 yk',
     invoiceNumber: 'INV-A00001',
     date: new Date('2026-05-12T12:01:00'),
@@ -140,7 +140,7 @@ export function exampleLargeTransaction(): string {
   return generateReceiptRaw(receiptData);
 }
 
-// ==================== EXAMPLE 5: With Logo (CV.AULIA USAHA) ====================
+// ==================== EXAMPLE 5: With Logo (EL PROJECT) ====================
 
 export async function exampleReceiptWithLogo(): Promise<string> {
   const items: ReceiptItem[] = [
@@ -154,9 +154,9 @@ export async function exampleReceiptWithLogo(): Promise<string> {
   const total = subtotal - discount;
 
   const receiptData: ReceiptData = {
-    storeName: 'CV.AULIA USAHA',
+    storeName: 'EL PROJECT',
     storeAddress: 'jl.condong catur no 13 yk',
-    logoPath: `${import.meta.env.BASE_URL}CV.AULIA.png`, // Logo dari public folder
+    logoPath: `${import.meta.env.BASE_URL}elproject.png`, // Logo dari public folder
     invoiceNumber: 'INV-CVA-2026-001',
     date: new Date(),
     customerName: 'Pelanggan Setia',
@@ -168,7 +168,7 @@ export async function exampleReceiptWithLogo(): Promise<string> {
     amountPaid: 100000,
     change: 100000 - total,
     paymentMethod: 'Tunai',
-    footerMessage: 'terima kasih sudah berbelanja di CV.AULIA USAHA!',
+    footerMessage: 'terima kasih sudah berbelanja di EL PROJECT!',
   };
 
   // Gunakan generateReceiptRawWithLogo untuk include gambar

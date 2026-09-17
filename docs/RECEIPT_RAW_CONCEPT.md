@@ -6,7 +6,7 @@ Fungsi `generateReceiptRaw()` membuat format nota dalam raw text yang sesuai den
 ## Format Nota
 
 ```
-         Sbagiamu
+         elproject
   jl.condong catur no 13 yk
 ________________________________
 No.ID :               INV-A00001
@@ -39,7 +39,7 @@ terima kasih sudah berbelanja
 ```typescript
 interface ReceiptData {
   // Header
-  storeName?: string;           // default: 'SBAGIAMU'
+  storeName?: string;           // default: 'elproject'
   storeAddress?: string;        // alamat toko
 
   // Transaction Info
@@ -85,7 +85,7 @@ interface ReceiptItem {
 import { generateReceiptRaw } from '@/lib/bluetooth-printer';
 
 const receiptData = {
-  storeName: 'Sbagiamu',
+  storeName: 'elproject',
   storeAddress: 'jl.condong catur no 13 yk',
   invoiceNumber: 'INV-A00001',
   date: new Date('2026-05-12T12:01:00'),
@@ -111,7 +111,7 @@ const rawText = generateReceiptRaw(receiptData);
 console.log(rawText);
 
 // Output akan seperti:
-//          Sbagiamu
+//          elproject
 //   jl.condong catur no 13 yk
 // ________________________________
 // No.ID :               INV-A00001
@@ -205,7 +205,7 @@ const handlePrintReceipt = async (transaction: any) => {
 
     // Prepare receipt data
     const receiptData = {
-      storeName: 'Sbagiamu',
+      storeName: 'elproject',
       storeAddress: 'jl.condong catur no 13 yk',
       invoiceNumber: transaction.invoice_number,
       date: new Date(transaction.created_at),

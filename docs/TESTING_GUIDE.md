@@ -3,7 +3,7 @@
 ## ✅ Current Status
 - **App Version**: 1.0 (Build 6/7/2026)
 - **APK Location**: `android/app/build/outputs/apk/debug/app-debug.apk` (4.41 MB)
-- **Installation Status**: ✅ Installed on device (com.sbagiamu.app)
+- **Installation Status**: ✅ Installed on device (com.elproject.app)
 - **Device**: Xiaomi Redmi Note 9 Pro (e88b3f6b)
 - **Target Android Version**: API 30+
 
@@ -174,5 +174,5 @@ Once connection is tested successfully:
 
 ---
 **Last Updated**: 6/7/2026
-**App Package**: com.sbagiamu.app
+**App Package**: com.elproject.app
 **Build Type**: Debug APK

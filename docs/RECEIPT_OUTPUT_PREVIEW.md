@@ -7,7 +7,7 @@ Ini adalah preview dari berbagai format nota yang bisa dihasilkan dari fungsi `g
 ## Preview 1: Basic Receipt (Member dengan Diskon & Poin)
 
 ```
-         Sbagiamu
+         elproject
   jl.condong catur no 13 yk
 ________________________________
 No.ID :               INV-A00001

@@ -24,7 +24,7 @@
 │ Device:        Xiaomi Redmi Note 9 Pro                  │
 │ App Status:    ✅ RUNNING                               │
 │ Build Size:    4.41 MB                                  │
-│ Package:       com.sbagiamu.app v1.0                    │
+│ Package:       com.elproject.app v1.0                    │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -206,8 +206,8 @@ PRINTING (After Transaction)
 
 ### App Details
 ```
-Application Name:    Sbagiamu Kasir
-Package Name:        com.sbagiamu.app
+Application Name:    elproject Kasir
+Package Name:        com.elproject.app
 Version:             1.0
 Build Type:          Debug APK
 APK Size:            4.41 MB
@@ -475,7 +475,7 @@ adb logcat | grep chromium
 ║        Date: June 7, 2026                                      ║
 ║        Status: ✅ PRODUCTION READY                             ║
 ║        Device: Xiaomi Redmi Note 9 Pro                         ║
-║        App: com.sbagiamu.app v1.0                              ║
+║        App: com.elproject.app v1.0                              ║
 ║                                                                ║
 ╚════════════════════════════════════════════════════════════════╝
 ```

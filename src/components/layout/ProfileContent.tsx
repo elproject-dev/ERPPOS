@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Store, User, Loader2, LogOut } from "lucide-react";
+import { Store, User, Loader2, LogOut, Camera } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useListOutlets } from "@/mocks/api-client-react";
 import { supabase } from "@/lib/supabase";
@@ -15,9 +15,9 @@ export function ProfileContent() {
   const { user, logout, updateUser } = useAuth();
   const { toast } = useToast();
   const { data: outlets } = useListOutlets();
-  
+
   const assignedOutletName = outlets?.find((o: any) => o.id.toString() === user?.outletId)?.name || 'Semua Outlet';
-  
+
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -27,7 +27,7 @@ export function ProfileContent() {
 
     try {
       setIsUploadingAvatar(true);
-      
+
       // Hapus foto lama jika ada
       if (user.avatarUrl) {
         let oldFileKey = user.avatarUrl;
@@ -38,13 +38,13 @@ export function ProfileContent() {
           oldFileKey = oldFileKey.split('/').pop() || oldFileKey;
         }
         if (oldFileKey.includes('?')) oldFileKey = oldFileKey.split('?')[0];
-        
+
         await supabase.storage.from('avatars').remove([decodeURIComponent(oldFileKey)]);
       }
 
       toast({ title: "Memproses gambar", description: "Mohon tunggu sebentar..." });
       const compressedFile = await compressImage(file, 400, 400, 0.8);
-      
+
       const fileName = `${user.id}_${Date.now()}.webp`;
 
       const { error: uploadError } = await supabase.storage
@@ -89,60 +89,60 @@ export function ProfileContent() {
     <div className="flex flex-row gap-4 sm:gap-6 items-start justify-between relative">
       <div className="flex-1 min-w-0 space-y-4">
         <div className="space-y-1">
-          <Label className="text-xs text-slate-500 uppercase tracking-wider">Nama Lengkap</Label>
+          <Label className="text-xs text-slate-500 tracking-wider">Nama Lengkap</Label>
           <p className="font-medium text-slate-900 dark:text-white text-base">{user?.name || "Tidak ada nama"}</p>
         </div>
         <div className="space-y-1">
-          <Label className="text-xs text-slate-500 uppercase tracking-wider">Email</Label>
+          <Label className="text-xs text-slate-500 tracking-wider">Email</Label>
           <p className="font-medium text-slate-900 dark:text-white text-base">{user?.email}</p>
         </div>
         <div className="space-y-1">
-          <Label className="text-xs text-slate-500 uppercase tracking-wider">Peran</Label>
+          <Label className="text-xs text-slate-500 tracking-wider">Peran</Label>
           <div>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+            <span className="inline-flex items-center px-2.5 py-0.5 text-xs font-medium bg-primary/10 text-primary">
               {user?.role === 'admin' ? 'Administrator' : 'Kasir'}
             </span>
           </div>
         </div>
-        
+
 
       </div>
 
       <div className="flex flex-col items-center gap-3">
-        <div className="relative w-24 h-24 rounded-full border-4 border-white dark:border-slate-800 shadow-md bg-slate-100 dark:bg-slate-800 overflow-hidden shrink-0 flex items-center justify-center">
+        <div
+          className="relative w-24 h-24 rounded-full border-4 border-white dark:border-slate-800 shadow-md bg-slate-100 dark:bg-slate-800 overflow-hidden shrink-0 flex items-center justify-center cursor-pointer group"
+          onClick={() => !isUploadingAvatar && fileInputRef.current?.click()}
+        >
           {user?.avatarUrl ? (
-            <CachedImage src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+            <CachedImage src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover group-hover:opacity-50 transition-opacity" />
           ) : (
-            <User className="w-10 h-10 text-slate-400" />
+            <User className="w-10 h-10 text-slate-400 group-hover:opacity-50 transition-opacity" />
           )}
+
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
+            <Camera className="w-6 h-6 text-white" />
+          </div>
+
           {isUploadingAvatar && (
-            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10">
               <Loader2 className="w-6 h-6 text-white animate-spin" />
             </div>
           )}
         </div>
-        <input 
-          type="file" 
-          accept="image/*" 
-          className="hidden" 
-          ref={fileInputRef} 
-          onChange={handleAvatarUpload} 
+        <input
+          type="file"
+          accept="image/*"
+          className="hidden"
+          ref={fileInputRef}
+          onChange={handleAvatarUpload}
           disabled={isUploadingAvatar}
         />
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className="w-full text-xs h-8" 
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isUploadingAvatar}
-        >
-          Ubah Foto
-        </Button>
+
 
         <Button
           variant="destructive"
           size="sm"
-          className="w-full text-xs h-8"
+          className="w-full text-xs h-8 mt-5"
           onClick={async () => {
             await logout();
             setLocation("/login");

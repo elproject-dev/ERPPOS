@@ -2,7 +2,7 @@
 
 ## 🎯 Overview
 
-Konsep lengkap untuk **Nota Print Raw** thermal printer Bluetooth dengan format sesuai template Sbagiamu.
+Konsep lengkap untuk **Nota Print Raw** thermal printer Bluetooth dengan format sesuai template elproject.
 
 **Status:** ✅ **READY FOR IMPLEMENTATION**
 
@@ -83,7 +83,7 @@ await printSimpleReceipt(receipt);
 ## 📋 Format Example
 
 ```
-         Sbagiamu
+         elproject
   jl.condong catur no 13 yk
 ________________________________
 No.ID :               INV-A00001

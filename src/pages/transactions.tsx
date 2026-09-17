@@ -1,22 +1,40 @@
 import { useState, useEffect } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useListTransactions, useListOutlets, useGetTransaction, useDeleteTransaction, useStoreSettings } from "@workspace/api-client-react";
 import { formatRupiah, formatInvoiceNumber, formatSimpleDate } from "@/lib/formatters";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, ChevronLeft, CreditCard, Banknote, QrCode, User, History, SlidersHorizontal, Printer, Trash2, Edit } from "lucide-react";
+import { ChevronRight, ChevronLeft, CreditCard, Banknote, QrCode, User, History, SlidersHorizontal, Printer, Trash2, Edit, Eye, ChevronDown, Copy, Truck, FileText } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { ADMIN_EMAIL } from "@/lib/auth";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { ActionMenu, ActionMenuItem } from "@/components/ui/action-menu";
 import { useToast } from "@/hooks/use-toast";
 import { Capacitor } from "@capacitor/core";
-
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   connectToPrinter,
   disconnectPrinter,
@@ -51,11 +69,13 @@ const formatTransactionHistoryDate = (dateStr: string) => {
 function TransactionReceiptDialog({
   transaction: trx,
   onClose,
-  onDeleted
+  onDeleted,
+  autoPrintInvoice
 }: {
   transaction: any | null,
   onClose: () => void,
-  onDeleted: () => void
+  onDeleted: () => void,
+  autoPrintInvoice?: boolean
 }) {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -64,7 +84,7 @@ function TransactionReceiptDialog({
   const { data: storeSettingsData } = useStoreSettings();
 
   const storeInfo = {
-    name: storeSettingsData?.name || 'CV.AULIA USAHA',
+    name: storeSettingsData?.name || 'EL PROJECT',
     address: storeSettingsData?.address || '',
     phone: storeSettingsData?.phone || '',
     showFooter: storeSettingsData?.show_footer ?? true,
@@ -73,11 +93,12 @@ function TransactionReceiptDialog({
     footerMessage3: storeSettingsData?.footer_message3 || '',
     bankName: storeSettingsData?.bank_name || 'BCA',
     bankAccount: storeSettingsData?.bank_account || '4451377137',
-    bankAccountName: storeSettingsData?.bank_account_name || 'AULIA USAHA'
+    bankAccountName: storeSettingsData?.bank_account_name || 'ELPROJECT'
   };
 
   const deleteTransaction = useDeleteTransaction();
   const [isPrinting, setIsPrinting] = useState(false);
+  const [showAllDetails, setShowAllDetails] = useState(false);
 
   const displayedStoreName = storeInfo.name;
   const displayedAddress = storeInfo.address;
@@ -108,7 +129,7 @@ function TransactionReceiptDialog({
 
       const items = trx.transaction_items?.map((item: any) => ({
         productId: item.product_id,
-        productName: item.product_name,
+        productName: item.product_name || item.products?.name,
         quantity: item.quantity,
         price: item.price
       })) || [];
@@ -189,7 +210,7 @@ function TransactionReceiptDialog({
       return;
     }
 
-    const storeName = displayedStoreName || "CV AULIA USAHA";
+    const storeName = displayedStoreName || "EL PROJECT";
     const storeAddress = displayedAddress || "";
     const storePhone = displayedPhone || "";
 
@@ -214,7 +235,7 @@ function TransactionReceiptDialog({
     }
 
     let itemsHtml = trx.transaction_items?.map((item: any, index: number) => {
-      const productName = item.product_name || 'Unknown';
+      const productName = item.product_name || item.products?.name || 'Unknown';
       const qty = item.unit_qty !== undefined && item.unit_qty !== null ? item.unit_qty : (item.quantity || 0);
       const unit = item.unit_name || 'pcs';
       const unitPrice = qty > 0 ? (item.subtotal || 0) / qty : (item.price || 0);
@@ -243,7 +264,7 @@ function TransactionReceiptDialog({
         const extraDiscs = [];
         if (globalDiscountPercent > 0) extraDiscs.push(globalDiscountPercent + '%');
         if (adminDiscountPercent > 0) extraDiscs.push(adminDiscountPercent + '%');
-        
+
         if (extraDiscs.length > 0) {
           displayDisc2 = extraDiscs.join('+');
         }
@@ -254,10 +275,10 @@ function TransactionReceiptDialog({
 
       let finalItemSubtotal = subtotal;
       if (globalDiscountPercent > 0) {
-         finalItemSubtotal -= (finalItemSubtotal * globalDiscountPercent) / 100;
+        finalItemSubtotal -= (finalItemSubtotal * globalDiscountPercent) / 100;
       }
       if (adminDiscountPercent > 0) {
-         finalItemSubtotal -= (finalItemSubtotal * adminDiscountPercent) / 100;
+        finalItemSubtotal -= (finalItemSubtotal * adminDiscountPercent) / 100;
       }
 
       return `
@@ -304,7 +325,7 @@ function TransactionReceiptDialog({
       returnDate = `${dateStr} ,${timeStr}`;
     }
 
-    const getInvoiceContentHtml = () => {
+    const getInvoiceContentHtml = (docTitle: string = "FAKTUR PENJUALAN", copyLabel: string = "LEMBAR 1 (ASLI)") => {
       return `
         <div class="invoice-copy">
           <div>
@@ -314,7 +335,7 @@ function TransactionReceiptDialog({
                   <table style="border-collapse: collapse; border: none; margin: 0; padding: 0;">
                     <tr>
                       <td style="vertical-align: middle; padding-right: 12px; border: none;">
-                        <img src="${window.location.origin}${import.meta.env.BASE_URL}CV.AULIA.png" alt="Logo" style="height: 40px; width: auto; display: block; position: relative; top: -3px;" onerror="this.style.display='none'" />
+                        <img src="${window.location.origin}${import.meta.env.BASE_URL}elproject.webp" alt="Logo" style="height: 40px; width: auto; display: block; position: relative; top: -3px;" onerror="this.style.display='none'" />
                       </td>
                       <td style="vertical-align: middle; border: none; padding: 0; text-align: left;">
                         <div class="company-name">${storeName}</div>
@@ -325,8 +346,9 @@ function TransactionReceiptDialog({
                   </table>
                 </td>
                 <td style="width: 40%; text-align: right; vertical-align: top;">
-                  <h1 class="invoice-title">FAKTUR PENJUALAN</h1>
-                  <div style="font-size: 12px; font-weight: 700; margin-top: 4px; display: inline-flex; gap: 6px; justify-content: flex-end; align-items: center; width: 100%;">
+                  <h1 class="invoice-title">${docTitle}</h1>
+                  <div style="font-size: 11px; font-weight: 700; margin-top: 4px; display: inline-flex; gap: 6px; justify-content: flex-end; align-items: center; width: 100%;">
+                    <span class="invoice-copy-badge">${copyLabel}</span>
                     <span class="invoice-status-badge ${trx.payment_status === 'paid' ? 'badge-completed' : trx.payment_status === 'partial' ? 'badge-partial' : 'badge-pending'}">${trx.payment_status === 'paid' ? 'LUNAS' : trx.payment_status === 'partial' ? 'CICILAN' : 'TEMPO PENUH'}</span>
                   </div>
                 </td>
@@ -527,11 +549,11 @@ function TransactionReceiptDialog({
             </table>
             
             <div style="text-align: left; font-size: 11px; font-style: normal; color: #000000; margin-top: 10px; line-height: 1.3; width: 100%;">
-              Pembayaran Transfer melalui Bank: ${storeInfo?.bankName || 'BCA'} ${storeInfo?.bankAccount || '4451377137'} a/n ${storeInfo?.bankAccountName || 'AULIA USAHA'}
+              Pembayaran Transfer melalui Bank: ${storeInfo?.bankName || 'BCA'} ${storeInfo?.bankAccount || '4451377137'} a/n ${storeInfo?.bankAccountName || 'EL PROJECT'}
             </div>
 
             <div class="footer-divider"></div>
-            <table style="width: 100%; border-collapse: collapse;">
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 12px;">
               <tr>
                 <td style="text-align: center; font-size: 10.2px; color: #64748b;">
                   ${[displayedFooter1, displayedFooter2, displayedFooter3].filter(Boolean).join(' | ') || 'Terima Kasih Sudah Melakukan Order'}
@@ -547,19 +569,28 @@ function TransactionReceiptDialog({
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Faktur Penjualan - ${formatInvoiceNumber(trx.id)}</title>
+        <title>Faktur & Surat Jalan - ${formatInvoiceNumber(trx.id)}</title>
         <style>
           @page {
             size: auto; /* Biarkan driver printer continuous yang menentukan ukuran */
-            margin-top: 15mm;
-            margin-bottom: 5mm;
-            margin-left: 0mm;
-            margin-right: 0mm;
+            margin: 0; /* Margin 0 di @page akan menghilangkan header/footer teks bawaan browser (Tanggal, Judul, URL) */
           }
           @media print {
-            body { margin: 0; padding: 10mm 8mm 5mm 8mm; }
+            body { margin: 0; padding: 15mm 8mm 5mm 8mm; }
             .no-print { display: none !important; }
             .invoice-copy { border: none !important; } /* Hilangkan border putus-putus luar */
+            .page-break {
+              page-break-before: always;
+              break-before: page;
+              clear: both;
+            }
+          }
+          .page-break {
+            border-top: 2px dashed #cbd5e1;
+            margin: 24px 0;
+            page-break-before: always;
+            break-before: page;
+            clear: both;
           }
           * {
             box-sizing: border-box;
@@ -593,21 +624,23 @@ function TransactionReceiptDialog({
             align-items: center;
             justify-content: center;
             text-align: center;
-            color: #94a3b8;
-            font-size: 9.6px;
+            color: #64748b;
+            font-size: 9px;
             font-weight: 700;
             letter-spacing: 0.15em;
-            margin: 1mm 0;
-            border-top: 1px dashed #cbd5e1;
+            margin: 18px 0 24px 0;
+            border-top: 1.5px dashed #cbd5e1;
             position: relative;
             height: 1px;
+            clear: both;
           }
           .cut-divider span {
             background: #ffffff;
-            padding: 0 10px;
+            padding: 0 14px;
             position: absolute;
-            top: -6px;
+            top: -7px;
             text-transform: uppercase;
+            white-space: nowrap;
           }
           .info-table {
             width: 100%;
@@ -778,7 +811,13 @@ function TransactionReceiptDialog({
       </head>
       <body>
         <div class="print-wrapper">
-          ${getInvoiceContentHtml()}
+          ${getInvoiceContentHtml("FAKTUR PENJUALAN", "SALINAN PELANGGAN")}
+          
+          <div class="cut-divider">
+            <span>Gunting di sini untuk memotong dokumen</span>
+          </div>
+          
+          ${getInvoiceContentHtml("SURAT JALAN", "SALINAN TOKO")}
         </div>
 
         <script>
@@ -833,14 +872,20 @@ function TransactionReceiptDialog({
     }
   };
 
+  useEffect(() => {
+    if (autoPrintInvoice && trx && !isPrinting) {
+      const timer = setTimeout(() => {
+        handlePrintInvoice();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [autoPrintInvoice, trx]);
+
   return (
     <Dialog open={!!trx} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md p-0 overflow-hidden bg-slate-50">
+      <DialogContent className="max-w-2xl p-0 overflow-hidden bg-slate-50">
         {!trx ? (
-          <div className="py-12 flex flex-col justify-center items-center gap-3 text-slate-500">
-            <div className="w-8 h-8 border-3 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-            <p className="text-xs font-medium">Memuat detail struk...</p>
-          </div>
+          <LoadingSpinner text="Memuat detail struk..." className="min-h-[300px]" />
         ) : (
           <div className="flex flex-col h-full max-h-[85vh]">
             <div className="p-4 border-b border-slate-200 bg-white flex flex-col justify-center items-center shrink-0">
@@ -848,7 +893,7 @@ function TransactionReceiptDialog({
               <DialogDescription className="sr-only">Rincian struk transaksi lengkap</DialogDescription>
             </div>
 
-            <div className="p-4 sm:p-6 overflow-y-auto bg-white m-4 rounded-xl shadow-sm border border-slate-200 printable-receipt [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            <div className="p-4 sm:p-6 overflow-y-auto bg-white m-4 rounded-sm shadow-sm border border-slate-200 printable-receipt [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               <div className="mb-4 sm:mb-6 pb-4 sm:pb-6">
                 <div className="text-center mb-4">
                   <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900">{displayedStoreName}</h2>
@@ -875,20 +920,75 @@ function TransactionReceiptDialog({
                 <div className="flex justify-between items-center">
                   <span className="text-xs sm:text-sm text-slate-500">Status</span>
                   {trx.payment_status === 'partial' ? (
-                    <Badge className="bg-amber-500 hover:bg-amber-600 text-white font-medium">CICILAN</Badge>
+                    <Badge className="bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-sm">Cicilan</Badge>
                   ) : trx.payment_status === 'unpaid' ? (
-                    <Badge variant="destructive" className="font-medium">TEMPO</Badge>
+                    <Badge variant="destructive" className="font-medium rounded-sm">Tempo</Badge>
                   ) : (
-                    <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white font-medium">LUNAS</Badge>
+                    <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white font-medium rounded-sm">Lunas</Badge>
                   )}
                 </div>
                 <div className="flex justify-between text-xs sm:text-sm">
                   <span className="text-slate-500">Pelanggan</span>
-                  <span className="font-medium text-right">{trx.customers?.name || "-"}</span>
+                  <span className="text-right text-slate-500">{trx.customers?.name || "-"}</span>
                 </div>
-                <div className="flex justify-between text-xs sm:text-sm">
-                  <span className="text-slate-500">Metode Pembayaran</span>
-                  <span className="font-medium">{getPaymentLabel(trx.payment_method)}</span>
+                {showAllDetails && (
+                  <>
+                    {trx.customers?.phone && (
+                      <div className="flex justify-between text-xs sm:text-sm">
+                        <span className="text-slate-500">No. Telepon</span>
+                        <span className="text-right text-slate-500">{trx.customers.phone}</span>
+                      </div>
+                    )}
+                    {trx.customers?.address && (
+                      <div className="flex justify-between text-xs sm:text-sm">
+                        <span className="text-slate-500">Alamat</span>
+                        <span className="text-right max-w-[200px] sm:max-w-[300px] break-words text-slate-500">{trx.customers.address}</span>
+                      </div>
+                    )}
+                    {trx.customers?.province && (
+                      <div className="flex justify-between text-xs sm:text-sm">
+                        <span className="text-slate-500">Provinsi</span>
+                        <span className="text-right text-slate-500 capitalize">{trx.customers.province.toLowerCase()}</span>
+                      </div>
+                    )}
+                    {trx.customers?.city && (
+                      <div className="flex justify-between text-xs sm:text-sm">
+                        <span className="text-slate-500">Kota/Kabupaten</span>
+                        <span className="text-right text-slate-500 capitalize">{trx.customers.city.toLowerCase()}</span>
+                      </div>
+                    )}
+                    {trx.customers?.district && (
+                      <div className="flex justify-between text-xs sm:text-sm">
+                        <span className="text-slate-500">Kecamatan</span>
+                        <span className="text-right text-slate-500 capitalize">{trx.customers.district.toLowerCase()}</span>
+                      </div>
+                    )}
+                    {trx.customers?.village && (
+                      <div className="flex justify-between text-xs sm:text-sm">
+                        <span className="text-slate-500">Kelurahan</span>
+                        <span className="text-right text-slate-500 capitalize">{trx.customers.village.toLowerCase()}</span>
+                      </div>
+                    )}
+                    {trx.customers?.postal_code && (
+                      <div className="flex justify-between text-xs sm:text-sm">
+                        <span className="text-slate-500">Kode Pos</span>
+                        <span className="text-right text-slate-500">{trx.customers.postal_code}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-xs sm:text-sm">
+                      <span className="text-slate-500">Metode Pembayaran</span>
+                      <span className="text-right text-slate-500">{getPaymentLabel(trx.payment_method)}</span>
+                    </div>
+                  </>
+                )}
+
+                <div className="flex justify-center mt-2 pt-1 border-t border-slate-100">
+                  <button
+                    onClick={() => setShowAllDetails(!showAllDetails)}
+                    className="text-[11px] sm:text-xs text-gray-600 hover:text-blue-800 font-medium cursor-pointer"
+                  >
+                    {showAllDetails ? "Sembunyikan detail" : "Lihat semua"}
+                  </button>
                 </div>
               </div>
 
@@ -916,7 +1016,7 @@ function TransactionReceiptDialog({
                   return (
                     <div key={item.id} className="flex justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-slate-900 break-words">{item.product_name}</p>
+                        <p className="font-medium text-slate-900 break-words">{item.product_name || item.products?.name || '-'}</p>
                         <p className="text-slate-500 mt-0.5 text-xs">
                           {qty} x {formatRupiah(displayOriginalPrice)}
                           {discountPercent > 0 && ` (Diskon: ${discountPercent}%)`}
@@ -1103,9 +1203,68 @@ export default function TransactionsPage() {
   const [endDate, setEndDate] = useState<string>("");
 
   const [selectedTransaction, setSelectedTransaction] = useState<any | null>(null);
+  const [autoPrintInvoice, setAutoPrintInvoice] = useState(false);
+  const [transactionToDelete, setTransactionToDelete] = useState<any | null>(null);
 
   const { user } = useAuth();
   const isAdminSuper = user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const deleteTransaction = useDeleteTransaction();
+
+  const handleDeleteAction = (trx: any) => {
+    deleteTransaction.mutate({ id: trx.id }, {
+      onSuccess: () => {
+        toast({ title: "Sukses", description: "Data transaksi berhasil dihapus." });
+        refetch();
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Gagal menghapus",
+          description: error.message || "Terjadi kesalahan saat menghapus transaksi.",
+          variant: "destructive"
+        });
+      }
+    });
+  };
+
+  const getActionMenuItems = (trx: any) => {
+    const items: ActionMenuItem[] = [
+      {
+        label: "Lihat Detail",
+        icon: <Eye className="h-4 w-4 text-slate-500" />,
+        onClick: () => {
+          setSelectedTransaction(trx);
+          setAutoPrintInvoice(false);
+        },
+      },
+      {
+        label: "Cetak Faktur",
+        icon: <Printer className="h-4 w-4 text-slate-500" />,
+        onClick: () => {
+          setSelectedTransaction(trx);
+          setAutoPrintInvoice(true);
+        },
+      }
+    ];
+
+    if (isAdminSuper) {
+      items.push({
+        label: "Edit",
+        icon: <Edit className="h-4 w-4 text-slate-500" />,
+        onClick: () => setLocation(`/pos?edit=${trx.id}`),
+      });
+      items.push({
+        label: "Hapus",
+        icon: <Trash2 className="h-4 w-4" />,
+        onClick: () => setTransactionToDelete(trx),
+        destructive: true,
+      });
+    }
+
+    return items;
+  };
 
   const { data: outlets } = useListOutlets();
 
@@ -1192,213 +1351,279 @@ export default function TransactionsPage() {
   };
 
   const getPaymentStatusBadge = (status: string) => {
-    if (status === 'partial') return <Badge className="bg-amber-500 hover:bg-amber-600 text-white font-medium">Cicilan</Badge>;
-    if (status === 'unpaid') return <Badge variant="destructive" className="font-medium">Tempo</Badge>;
-    return <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white font-medium">Lunas</Badge>;
+    if (status === 'partial') return <Badge className="bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-sm">Cicilan</Badge>;
+    if (status === 'unpaid') return <Badge variant="destructive" className="font-medium rounded-sm">Tempo</Badge>;
+    return <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white font-medium rounded-sm">Lunas</Badge>;
   };
 
   return (
     <Sidebar>
-      <div className="flex-1 flex flex-col h-full bg-slate-50">
+      <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-950" style={{ '--radius': '0px' } as React.CSSProperties}>
         {/* Header */}
-        <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-          <div className="flex flex-row items-center justify-between gap-4 w-full">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
-              <History className="w-6 h-6 text-primary animate-pulse shrink-0" />
-              <span className="truncate">Riwayat Transaksi</span>
-            </h1>
+        <div className="px-4 py-2 sm:px-6 sm:py-3 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-between">
+          <h1 className="text-xl sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
+            Riwayat Transaksi
+          </h1>
 
-            {/* Filter Section (Popover) */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="shrink-0 w-9 h-9 sm:w-auto sm:h-9 rounded-full sm:rounded-md p-0 sm:px-4 flex items-center justify-center sm:gap-2">
-                  <SlidersHorizontal className="w-4 h-4" />
-                  <span className="hidden sm:inline">Filter Transaksi</span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-[340px] max-w-[95vw] sm:w-[400px] p-4 sm:rounded-2xl shadow-xl">
-                <div className="space-y-4">
-                  <div className="font-semibold text-sm mb-2">Filter Data</div>
+          {/* Filter Section (Popover) */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="shrink-0 h-8 px-3 text-xs sm:text-sm flex items-center justify-center gap-2 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm">
+                <SlidersHorizontal className="w-4 h-4" />
+                <span className="hidden sm:inline">Filter Transaksi</span>
+                <span className="sm:hidden font-medium">Filter</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-[340px] max-w-[95vw] sm:w-[400px] p-4 sm:rounded-sm shadow-xl">
+              <div className="space-y-4">
+                <div className="font-semibold text-sm mb-2">Filter Data</div>
 
-                  {/* Date Filters */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium text-slate-500">Rentang Tanggal</label>
-                    <div className="flex flex-col sm:flex-row items-center gap-2 w-full">
-                      <div className="relative w-full h-9">
-                        <Input
-                          type="text"
-                          placeholder="Tanggal Mulai"
-                          value={startDate ? startDate.split('-').reverse().join('-') : ""}
-                          readOnly
-                          className="absolute inset-0 h-9 w-full rounded-md text-sm text-center bg-transparent focus:ring-0 cursor-pointer"
-                        />
-                        <input
-                          type="date"
-                          value={startDate}
-                          onChange={(e: any) => { setStartDate(e.target.value); setPage(1); }}
-                          onClick={(e: any) => {
-                            try { e.target.showPicker?.(); } catch (err) { }
-                          }}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                          title="Tanggal Mulai"
-                        />
-                      </div>
-                      <span className="text-slate-400 text-sm hidden sm:block">-</span>
-                      <div className="relative w-full h-9">
-                        <Input
-                          type="text"
-                          placeholder="Tanggal Akhir"
-                          value={endDate ? endDate.split('-').reverse().join('-') : ""}
-                          readOnly
-                          className="absolute inset-0 h-9 w-full rounded-md text-sm text-center bg-transparent focus:ring-0 cursor-pointer"
-                        />
-                        <input
-                          type="date"
-                          value={endDate}
-                          onChange={(e: any) => { setEndDate(e.target.value); setPage(1); }}
-                          onClick={(e: any) => {
-                            try { e.target.showPicker?.(); } catch (err) { }
-                          }}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                          title="Tanggal Akhir"
-                        />
-                      </div>
+                {/* Date Filters */}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-slate-500">Rentang Tanggal</label>
+                  <div className="flex flex-col sm:flex-row items-center gap-2 w-full">
+                    <div className="relative w-full h-9">
+                      <Input
+                        type="text"
+                        placeholder="Tanggal Mulai"
+                        value={startDate ? startDate.split('-').reverse().join('-') : ""}
+                        readOnly
+                        className="absolute inset-0 h-9 w-full rounded-sm text-sm text-center bg-transparent focus:ring-0 cursor-pointer"
+                      />
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={(e: any) => { setStartDate(e.target.value); setPage(1); }}
+                        onClick={(e: any) => {
+                          try { e.target.showPicker?.(); } catch (err) { }
+                        }}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        title="Tanggal Mulai"
+                      />
+                    </div>
+                    <span className="text-slate-400 text-sm hidden sm:block">-</span>
+                    <div className="relative w-full h-9">
+                      <Input
+                        type="text"
+                        placeholder="Tanggal Akhir"
+                        value={endDate ? endDate.split('-').reverse().join('-') : ""}
+                        readOnly
+                        className="absolute inset-0 h-9 w-full rounded-sm text-sm text-center bg-transparent focus:ring-0 cursor-pointer"
+                      />
+                      <input
+                        type="date"
+                        value={endDate}
+                        onChange={(e: any) => { setEndDate(e.target.value); setPage(1); }}
+                        onClick={(e: any) => {
+                          try { e.target.showPicker?.(); } catch (err) { }
+                        }}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        title="Tanggal Akhir"
+                      />
                     </div>
                   </div>
-
-                  {/* Only show for admin super */}
-                  {isAdminSuper && (
-                    <>
-                      {/* Cashier Filter */}
-                      <div className="space-y-2">
-                        <label className="text-xs font-medium text-slate-500">Sales</label>
-                        <Select value={cashierFilter} onValueChange={(v) => { setCashierFilter(v); setPage(1); }}>
-                          <SelectTrigger className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1">
-                            <User className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
-                            <SelectValue placeholder="Semua Sales" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">Semua Sales</SelectItem>
-                            {cashiers.map((cashier) => (
-                              <SelectItem key={cashier} value={cashier}>
-                                {cashier}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </>
-                  )}
-
-                  {/* Payment Method Filter */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium text-slate-500">Metode Pembayaran</label>
-                    <Select value={paymentMethod} onValueChange={handlePaymentMethodChange}>
-                      <SelectTrigger className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1">
-                        <CreditCard className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
-                        <SelectValue placeholder="Semua Metode" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Semua Metode</SelectItem>
-                        <SelectItem value="cash">Tunai</SelectItem>
-                        <SelectItem value="qris">QRIS</SelectItem>
-                        <SelectItem value="transfer">Transfer</SelectItem>
-                        <SelectItem value="debit_card">E-wallet</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Payment Status Filter */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium text-slate-500">Status Pembayaran</label>
-                    <Select value={paymentStatus} onValueChange={(v) => { setPaymentStatus(v); setPage(1); }}>
-                      <SelectTrigger className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1">
-                        <History className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
-                        <SelectValue placeholder="Semua Status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Semua Status</SelectItem>
-                        <SelectItem value="paid">Lunas</SelectItem>
-                        <SelectItem value="partial">Cicilan</SelectItem>
-                        <SelectItem value="unpaid">Tempo</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
                 </div>
-              </PopoverContent>
-            </Popover>
-          </div>
+
+                {/* Only show for admin super */}
+                {isAdminSuper && (
+                  <>
+                    {/* Cashier Filter */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-slate-500">Sales</label>
+                      <Select value={cashierFilter} onValueChange={(v) => { setCashierFilter(v); setPage(1); }}>
+                        <SelectTrigger className="h-9 w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1">
+                          <User className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
+                          <SelectValue placeholder="Semua Sales" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Semua Sales</SelectItem>
+                          {cashiers.map((cashier) => (
+                            <SelectItem key={cashier} value={cashier}>
+                              {cashier}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
+
+                {/* Payment Method Filter */}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-slate-500">Metode Pembayaran</label>
+                  <Select value={paymentMethod} onValueChange={handlePaymentMethodChange}>
+                    <SelectTrigger className="h-9 w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1">
+                      <CreditCard className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
+                      <SelectValue placeholder="Semua Metode" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Semua Metode</SelectItem>
+                      <SelectItem value="cash">Tunai</SelectItem>
+                      <SelectItem value="qris">QRIS</SelectItem>
+                      <SelectItem value="transfer">Transfer</SelectItem>
+                      <SelectItem value="debit_card">E-wallet</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Payment Status Filter */}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-slate-500">Status Pembayaran</label>
+                  <Select value={paymentStatus} onValueChange={(v) => { setPaymentStatus(v); setPage(1); }}>
+                    <SelectTrigger className="h-9 w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1">
+                      <History className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
+                      <SelectValue placeholder="Semua Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Semua Status</SelectItem>
+                      <SelectItem value="paid">Lunas</SelectItem>
+                      <SelectItem value="partial">Cicilan</SelectItem>
+                      <SelectItem value="unpaid">Tempo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
 
-        <div className="p-4 sm:p-6 flex-1 overflow-x-hidden pb-20">
+        <div className="px-4 py-3 sm:px-6 sm:py-4 flex-1 overflow-auto scrollbar-hide pb-20">
 
-          {/* Mobile Card List */}
-          <div className="flex flex-col gap-3 lg:hidden">
-            {isLoading ? (
-              <div className="flex flex-col items-center justify-center py-10 gap-3 text-slate-500">
-                <div className="w-8 h-8 border-3 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                <p className="text-xs font-medium">Memuat...</p>
-              </div>
-            ) : transactions?.length === 0 ? (
-              <div className="text-center py-10 text-slate-500">Tidak ada transaksi ditemukan</div>
-            ) : (
-              <>
-                {transactions?.map(trx => {
-                  const total = calculateTotal(trx);
-                  const customerName = trx.customers?.name || "Umum";
+          {isLoading ? (
+            <LoadingSpinner text="Memuat data transaksi..." />
+          ) : (
+            <>
+              {/* Mobile Card List */}
+              <div className="flex flex-col gap-3 md:hidden">
+                {transactions?.length === 0 ? (
+                  <div className="text-center py-10 text-slate-500 dark:text-slate-400">Tidak ada transaksi ditemukan</div>
+                ) : (
+                  transactions?.map(trx => {
+                    const total = calculateTotal(trx);
+                    const customerName = trx.customers?.name || "Umum";
 
-                  return (
-                    <div
-                      key={trx.id}
-                      onClick={() => setSelectedTransaction(trx)}
-                      className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 flex flex-col gap-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:border-primary/20 hover:shadow-md active:bg-primary/5 transition-all duration-200"
-                    >
-                      {/* Row 1: Invoice + Total */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
-                            {formatInvoiceNumber(trx.id)}
-                            {trx.is_edited && (
-                              <Badge variant="outline" className="w-5 h-5 p-0 flex items-center justify-center rounded-full border-blue-500 text-blue-600 bg-blue-50 text-[10px]" title="Transaksi telah diedit">R</Badge>
-                            )}
+                    return (
+                      <div
+                        key={trx.id}
+                        onClick={() => setSelectedTransaction(trx)}
+                        className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-3 flex flex-col gap-2 cursor-pointer hover:shadow-md transition-shadow relative"
+                      >
+                        {/* Row 1: Invoice + Payment Method Badge + Status Badge + ActionMenu */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                              {formatInvoiceNumber(trx.id)}
+                              {trx.is_edited && (
+                                <Badge variant="outline" className="w-5 h-5 p-0 flex items-center justify-center rounded-full border-blue-500 text-blue-600 bg-blue-50 text-[10px]" title="Transaksi telah diedit">R</Badge>
+                              )}
+                            </div>
+                            <div className="text-xs text-slate-500 mt-0.5">{formatTransactionHistoryDate(trx.created_at)}</div>
                           </div>
-                          <div className="text-xs text-slate-400 mt-0.5">
-                            {formatTransactionHistoryDate(trx.created_at)}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <Badge variant="outline" className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700 flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-sm">
+                              {getPaymentIcon(trx.payment_method)}
+                              {getPaymentLabel(trx.payment_method)}
+                            </Badge>
+                            {getPaymentStatusBadge(trx.payment_status)}
+                            <ActionMenu
+                              items={getActionMenuItems(trx)}
+                              triggerClassName="-mr-2.5 -mt-2.5"
+                            />
                           </div>
                         </div>
-                        <div className="text-right">
+
+                        {/* Row 2: Customer + Cashier + Total Harga */}
+                        <div className="flex items-center justify-between gap-2 flex-wrap pt-2 border-t border-slate-100 dark:border-slate-800">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-xs text-slate-500">
+                              <span className="font-medium text-slate-700 dark:text-slate-300">{customerName}</span>
+                            </span>
+                            <span className="text-xs text-slate-400">
+                              {trx.cashier_name}
+                            </span>
+                          </div>
+
                           <div className="font-bold text-primary text-base whitespace-nowrap">
                             {formatRupiah(total)}
                           </div>
                         </div>
                       </div>
+                    );
+                  })
+                )}
+              </div>
 
-                      {/* Row 2: Customer + Cashier + Payment */}
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-xs text-slate-500">
-                            <span className="font-medium text-slate-700">{customerName}</span>
-                          </span>
-                          <span className="text-xs text-slate-400">
-                            {trx.cashier_name}
-                          </span>
-                        </div>
+              {/* Desktop Table */}
+              <div className="hidden md:block bg-white dark:bg-slate-900 rounded-none shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-slate-50 dark:bg-slate-800/50">
+                      <TableHead className="w-[180px]">ID / Waktu</TableHead>
+                      <TableHead className="min-w-[160px]">Pelanggan</TableHead>
+                      <TableHead className="w-[140px]">Sales</TableHead>
+                      <TableHead className="w-[120px] text-center">Status</TableHead>
+                      <TableHead className="w-[160px] text-center">Metode Bayar</TableHead>
+                      <TableHead className="w-[120px] text-right">Total</TableHead>
+                      <TableHead className="w-[50px] text-center">Aksi</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {transactions?.length === 0 ? (
+                      <TableRow><TableCell colSpan={6} className="text-center py-8 text-slate-500 dark:text-slate-400">Tidak ada transaksi ditemukan</TableCell></TableRow>
+                    ) : (
+                      transactions?.map(trx => {
+                        const total = calculateTotal(trx);
 
-                        <div className="flex items-center gap-2">
-                          {getPaymentStatusBadge(trx.payment_status)}
-                          <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-100 rounded text-xs font-medium text-slate-700 whitespace-nowrap">
-                            {getPaymentIcon(trx.payment_method)}
-                            {getPaymentLabel(trx.payment_method)}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                        return (
+                          <TableRow
+                            key={trx.id}
+                            className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:shadow-sm relative hover:z-10 transition-all duration-200 cursor-pointer"
+                            onClick={() => setSelectedTransaction(trx)}
+                          >
+                            <TableCell className="whitespace-nowrap">
+                              <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                {formatInvoiceNumber(trx.id)}
+                                {trx.is_edited && (
+                                  <Badge variant="outline" className="w-5 h-5 p-0 flex items-center justify-center rounded-full border-blue-500 text-blue-600 bg-blue-50 text-[10px]" title="Transaksi telah diedit">R</Badge>
+                                )}
+                              </div>
+                              <div className="text-xs text-slate-500 dark:text-slate-400">{formatTransactionHistoryDate(trx.created_at)}</div>
+                            </TableCell>
+                            <TableCell className="font-medium text-slate-900 dark:text-white whitespace-nowrap">
+                              {trx.customers?.name || "Umum"}
+                            </TableCell>
+                            <TableCell className="text-slate-600 dark:text-slate-400 whitespace-nowrap">{trx.cashier_name}</TableCell>
+                            <TableCell className="text-center whitespace-nowrap">
+                              {getPaymentStatusBadge(trx.payment_status)}
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap text-center">
+                              <div className="flex items-center justify-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                                {getPaymentIcon(trx.payment_method)}
+                                {getPaymentLabel(trx.payment_method)}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right font-bold text-primary whitespace-nowrap">
+                              {formatRupiah(total)}
+                            </TableCell>
+                            <TableCell className="text-center whitespace-nowrap">
+                              <ActionMenu
+                                items={getActionMenuItems(trx)}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
 
-                {/* Mobile/Tablet Pagination */}
-                <div className="flex items-center justify-between px-2 py-3 border-t border-slate-200 mt-2">
-                  <div className="text-sm text-slate-500">Halaman {page}</div>
+              {/* Pagination Controls */}
+              {transactions && transactions.length > 0 && (
+                <div className="flex items-center justify-between py-3 border-t border-slate-200 dark:border-slate-800 mt-2">
+                  <div className="text-sm text-slate-500">
+                    Halaman {page}
+                  </div>
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
@@ -1422,129 +1647,50 @@ export default function TransactionsPage() {
                     </Button>
                   </div>
                 </div>
-              </>
-            )}
-          </div>
-
-          {/* Desktop Table */}
-          <div className="hidden lg:block bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50/50">
-                    <TableHead>ID / Waktu</TableHead>
-                    <TableHead>Pelanggan</TableHead>
-                    <TableHead className="text-center">Sales</TableHead>
-                    <TableHead className="text-center">Status</TableHead>
-                    <TableHead>Metode Pembayaran</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoading ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="py-12">
-                        <div className="flex flex-col items-center justify-center gap-3 text-slate-500">
-                          <div className="w-8 h-8 border-3 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                          <p className="text-xs font-medium">Memuat...</p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : transactions?.map(trx => {
-                    const total = calculateTotal(trx);
-
-                    return (
-                      <TableRow
-                        key={trx.id}
-                        className="border-b dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:shadow-sm relative hover:z-10 transition-all duration-200 cursor-pointer"
-                        onClick={() => setSelectedTransaction(trx)}
-                      >
-                        <TableCell>
-                          <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                            {formatInvoiceNumber(trx.id)}
-                            {trx.is_edited && (
-                              <Badge variant="outline" className="w-5 h-5 p-0 flex items-center justify-center rounded-full border-blue-500 text-blue-600 bg-blue-50 text-[10px]" title="Transaksi telah diedit">R</Badge>
-                            )}
-                          </div>
-                          <div className="text-xs text-slate-500">{formatTransactionHistoryDate(trx.created_at)}</div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            {trx.customers?.name || "Umum"}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center text-slate-600">{trx.cashier_name}</TableCell>
-                        <TableCell className="text-center">
-                          {getPaymentStatusBadge(trx.payment_status)}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2 px-2 py-1 bg-slate-100 w-max rounded text-sm font-medium">
-                            {getPaymentIcon(trx.payment_method)}
-                            {getPaymentLabel(trx.payment_method)}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right font-bold text-primary">
-                          {formatRupiah(total)}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                  {transactions?.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-slate-500">
-                        Tidak ada transaksi ditemukan
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-
-            {/* Pagination Controls */}
-            {!isLoading && transactions && transactions.length > 0 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50/50">
-                <div className="text-sm text-slate-500">
-                  Halaman {page}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handlePrevious}
-                    disabled={page === 1}
-                    className="flex items-center gap-1"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                    Prev
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleNext}
-                    disabled={transactions.length < ITEMS_PER_PAGE}
-                    className="flex items-center gap-1"
-                  >
-                    Next
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
+              )}
+            </>
+          )}
         </div>
       </div>
 
-      {/* Transaction Detail Pop-up */}
       {selectedTransaction && (
         <TransactionReceiptDialog
           transaction={selectedTransaction}
-          onClose={() => setSelectedTransaction(null)}
+          autoPrintInvoice={autoPrintInvoice}
+          onClose={() => {
+            setSelectedTransaction(null);
+            setAutoPrintInvoice(false);
+          }}
           onDeleted={() => {
             setSelectedTransaction(null);
+            setAutoPrintInvoice(false);
             refetch();
           }}
         />
       )}
+
+      <AlertDialog open={!!transactionToDelete} onOpenChange={(open) => !open && setTransactionToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Transaksi?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Apakah Anda yakin ingin menghapus transaksi {transactionToDelete ? formatInvoiceNumber(transactionToDelete.id) : ''}? <br></br>Tindakan ini tidak bisa dibatalkan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                handleDeleteAction(transactionToDelete);
+                setTransactionToDelete(null);
+              }}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Hapus
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sidebar>
   );
 }

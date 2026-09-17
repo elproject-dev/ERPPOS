@@ -9,9 +9,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ActionMenu } from "@/components/ui/action-menu";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { Badge } from "@/components/ui/badge";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, Search, Edit, Trash2, Wallet, TrendingDown, SlidersHorizontal, Receipt, User, Store, Calendar, FileDown, Loader2, Image as ImageIcon, Camera, X, Download, Tag } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Wallet, TrendingDown, SlidersHorizontal, Receipt, User, Store, Calendar, FileDown, Loader2, Image as ImageIcon, Camera, X, Download, Tag, Upload } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { applyTenantFilter, withTenantOwner, handleTenantError, isTenantSuperAdmin, getTenantOwnerId } from "@/lib/tenant";
 import { loadSession } from "@/lib/auth";
@@ -77,6 +82,9 @@ export default function ExpensesPage() {
   const [categories, setCategories] = useState<ExpenseCategory[]>(DEFAULT_CATEGORIES);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [viewImageUrl, setViewImageUrl] = useState<string | null>(null);
+  const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
+  const [expenseToDelete, setExpenseToDelete] = useState<number | null>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -138,7 +146,6 @@ export default function ExpensesPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [viewImageUrl, setViewImageUrl] = useState<string | null>(null);
 
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat("id-ID").format(num);
@@ -194,7 +201,45 @@ export default function ExpensesPage() {
     }
   };
 
-  const handleDeleteCategory = async (id: string) => {
+  const handleQuickCreateCategory = async (name: string) => {
+    if (!name.trim()) return;
+
+    const newId = name.toLowerCase().replace(/\s+/g, '-');
+
+    if (categories.some(c => c.id === newId)) {
+      toast({ title: "Error", description: "Kategori sudah ada", variant: "destructive" });
+      return;
+    }
+
+    const colors = ["blue", "green", "yellow", "orange", "purple", "red", "pink", "cyan", "slate"];
+    const randomColor = colors[Math.floor(Math.random() * colors.length)];
+
+    const newCategory: ExpenseCategory = {
+      id: newId,
+      name: name.trim(),
+      color: randomColor,
+    };
+
+    const updated = [...categories, newCategory];
+    setCategories(updated);
+    setFormData((prev) => ({ ...prev, category: newId }));
+    toast({ title: "Sukses", description: "Kategori berhasil ditambahkan" });
+
+    const { error } = await supabase.from('expense_categories').insert([newCategory]);
+    if (error) {
+      toast({ title: "Error", description: "Gagal menyimpan kategori ke database", variant: "destructive" });
+      fetchCategories();
+    }
+  };
+
+  const handleDeleteCategory = (id: string) => {
+    setCategoryToDelete(id);
+  };
+
+  const confirmDeleteCategory = async () => {
+    if (!categoryToDelete) return;
+    const id = categoryToDelete;
+
     const isUsed = expenses.some((e) => e.category === id);
     if (isUsed) {
       toast({
@@ -202,19 +247,23 @@ export default function ExpensesPage() {
         description: "Tidak dapat menghapus kategori yang sedang digunakan oleh pengeluaran.",
         variant: "destructive",
       });
+      setCategoryToDelete(null);
       return;
     }
 
     // Optimistic update
     const updated = categories.filter((c) => c.id !== id);
     setCategories(updated);
+    toast({ title: "Sukses", description: "Kategori berhasil dihapus" });
 
-    // Delete from DB
+    // Save to DB
     const { error } = await supabase.from('expense_categories').delete().eq('id', id);
     if (error) {
       toast({ title: "Error", description: "Gagal menghapus kategori", variant: "destructive" });
-      fetchCategories(); // Revert
+      fetchCategories(); // Revert optimistic update
     }
+
+    setCategoryToDelete(null);
   };
 
   const fetchCategories = useCallback(async () => {
@@ -281,7 +330,7 @@ export default function ExpensesPage() {
         .in("owner_id", uniqueOwnerIds);
 
       const ownerMap = new Map<string, string>();
-      
+
       // Populate map from staff table (best source)
       if (allStaff && allStaff.length > 0) {
         allStaff.forEach(s => {
@@ -310,14 +359,14 @@ export default function ExpensesPage() {
 
       const userOptions: UserOption[] = uniqueOwnerIds.map((id, index) => {
         const lowerId = id.toLowerCase();
-        
+
         // If it's the current user, we can use their name from session
         const isCurrentUser = lowerId === currentUserId?.toLowerCase();
         const currentSessionName = isCurrentUser ? currentUser?.name : null;
-        
+
         // Find staff record from allStaff list
-        const staff = allStaff?.find(s => 
-          (s.owner_id && s.owner_id.toLowerCase() === lowerId) || 
+        const staff = allStaff?.find(s =>
+          (s.owner_id && s.owner_id.toLowerCase() === lowerId) ||
           (s.avatar_url && s.avatar_url.toLowerCase().includes(lowerId))
         );
 
@@ -340,14 +389,14 @@ export default function ExpensesPage() {
   const getStaffNameDisplay = useCallback((ownerId?: string) => {
     if (!ownerId) return "Admin";
     const lowerId = ownerId.toLowerCase();
-    
+
     if (lowerId === currentUserId?.toLowerCase()) {
       return currentUser?.name || "Anda";
     }
-    
+
     // 1. Look in allStaff first (direct and URL extraction)
-    const staff = allStaff?.find(s => 
-      (s.owner_id && s.owner_id.toLowerCase() === lowerId) || 
+    const staff = allStaff?.find(s =>
+      (s.owner_id && s.owner_id.toLowerCase() === lowerId) ||
       (s.avatar_url && s.avatar_url.toLowerCase().includes(lowerId))
     );
     if (staff) return staff.name;
@@ -357,7 +406,7 @@ export default function ExpensesPage() {
     if (mappedUser && !mappedUser.name.startsWith("Staff ")) {
       return mappedUser.name;
     }
-    
+
     return mappedUser?.name || "Staff";
   }, [currentUserId, currentUser, allStaff, users]);
 
@@ -503,7 +552,7 @@ export default function ExpensesPage() {
         image_url: expense.image_url || "",
       });
       if (expense.image_url) {
-         setImagePreview(expense.image_url);
+        setImagePreview(expense.image_url);
       }
     } else {
       setEditingExpense(null);
@@ -522,7 +571,7 @@ export default function ExpensesPage() {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      
+
       const ext = file.name.split('.').pop()?.toLowerCase() || '';
       const allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
       const isValidImage = file.type.startsWith("image/") || allowedExts.includes(ext);
@@ -538,16 +587,16 @@ export default function ExpensesPage() {
       }
 
       toast({ title: "Memproses gambar", description: "Mohon tunggu sebentar..." });
-      
+
       compressImage(file).then((compressedFile: File) => {
         setImageFile(compressedFile);
-        
+
         const reader = new FileReader();
         reader.onloadend = () => {
           setImagePreview(reader.result as string);
         };
         reader.readAsDataURL(compressedFile);
-        
+
         toast({ title: "Foto dipilih", description: "Gambar berhasil dikompresi untuk menghemat kuota", duration: 2000 });
       }).catch((err: any) => {
         console.error("Compression error:", err);
@@ -581,11 +630,11 @@ export default function ExpensesPage() {
 
         // If editing and replacing an old image, delete the old one
         if (editingExpense && editingExpense.image_url && editingExpense.image_url !== finalImageUrl) {
-            await deleteExpenseReceipt(editingExpense.image_url);
+          await deleteExpenseReceipt(editingExpense.image_url);
         }
       } else if (editingExpense && editingExpense.image_url && !finalImageUrl) {
-         // User removed the image
-         await deleteExpenseReceipt(editingExpense.image_url);
+        // User removed the image
+        await deleteExpenseReceipt(editingExpense.image_url);
       }
 
       const payload = withTenantOwner({
@@ -648,25 +697,30 @@ export default function ExpensesPage() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Hapus pengeluaran ini?")) return;
+  const handleDelete = (id: number) => {
+    setExpenseToDelete(id);
+  };
+
+  const confirmDeleteExpense = async () => {
+    if (expenseToDelete === null) return;
 
     try {
-      const expenseToDelete = expenses.find(e => e.id === id);
-      if (expenseToDelete?.image_url) {
-         const deleteRes = await deleteExpenseReceipt(expenseToDelete.image_url);
-         if (!deleteRes.success) {
-           console.warn("Gagal menghapus foto di Supabase:", deleteRes.error);
-           toast({ title: "Warning", description: "Data terhapus, tapi foto mungkin masih tersisa di server.", variant: "destructive" });
-         }
+      const expenseToDeleteData = expenses.find(e => e.id === expenseToDelete);
+      if (expenseToDeleteData?.image_url) {
+        const deleteRes = await deleteExpenseReceipt(expenseToDeleteData.image_url);
+        if (!deleteRes.success) {
+          console.warn("Gagal menghapus foto di Supabase:", deleteRes.error);
+          toast({ title: "Warning", description: "Data terhapus, tapi foto mungkin masih tersisa di server.", variant: "destructive" });
+        }
       }
 
       const query = applyTenantFilter(
-        supabase.from("expenses").delete().eq("id", id)
+        supabase.from("expenses").delete().eq("id", expenseToDelete)
       );
       const { error } = await query;
       if (error) throw error;
       toast({ title: "Sukses", description: "Pengeluaran berhasil dihapus" });
+      setExpenseToDelete(null);
       fetchExpenses();
     } catch (error) {
       console.error("Error deleting expense:", error);
@@ -965,667 +1019,660 @@ export default function ExpensesPage() {
   const maxExpense = expenses.length > 0 ? Math.max(...expenses.map((e) => e.amount)) : 0;
   const animatedMaxExpense = useCountUp(maxExpense, { duration: 1400 });
   const animatedTotalExpense = useCountUp(totalExpense, { duration: 1800 });
-  
+
   const animatedTodayCount = useCountUp(todayCount, { duration: 1000 });
   const animatedThisMonthCount = useCountUp(thisMonthCount, { duration: 1200 });
   const animatedTotalCount = useCountUp(expenses.length, { duration: 1400 });
 
   return (
     <Sidebar>
-      <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-900">
+      <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-950" style={{ '--radius': '0px' } as React.CSSProperties}>
         {/* Header */}
-        <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-between">
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
-            <Wallet className="w-6 h-6 text-primary" />
+        <div className="px-4 py-2 sm:px-6 sm:py-3 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-between">
+          <h1 className="text-xl sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
             Pengeluaran
           </h1>
-          <Button variant="outline" onClick={() => setShowDownloadDialog(true)} className="h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 gap-2">
-            <FileDown className="w-4 h-4 text-primary" />
-            <span className="font-medium text-xs sm:text-sm">Download</span>
-          </Button>
-        </div>
 
-        <div className="p-5 flex-1 overflow-auto">
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-5 items-stretch">
-            {/* Pengeluaran Hari Ini */}
-            <div className="rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 border-0 shadow-lg h-full">
-              <div className="p-4 sm:p-5 h-full flex flex-col justify-between">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-blue-100 text-xs sm:text-sm font-medium">Pengeluaran Hari Ini</p>
-                    <p className="text-lg sm:text-lg md:text-xl font-bold text-white leading-tight mt-1 truncate">
-                      {formatCurrency(animatedTodayTotal.value)}
-                    </p>
-                  </div>
-                  <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-                    <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
-                  </div>
-                </div>
-                <p className="text-xs mt-3 text-blue-200">{animatedTodayCount.value} transaksi hari ini</p>
-              </div>
-            </div>
-
-            {/* Pengeluaran Bulan Ini */}
-            <div className="rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 border-0 shadow-lg h-full">
-              <div className="p-4 sm:p-5 h-full flex flex-col justify-between">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-purple-100 text-xs sm:text-sm font-medium">Pengeluaran Bulan Ini</p>
-                    <p className="text-lg sm:text-lg md:text-xl font-bold text-white leading-tight mt-1 truncate">
-                      {formatCurrency(animatedThisMonthTotal.value)}
-                    </p>
-                  </div>
-                  <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-                    <Receipt className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
-                  </div>
-                </div>
-                <p className="text-xs mt-3 text-purple-200">{animatedThisMonthCount.value} transaksi bulan ini</p>
-              </div>
-            </div>
-
-            {/* Tertinggi */}
-            <div className="rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 border-0 shadow-lg h-full">
-              <div className="p-4 sm:p-5 h-full flex flex-col justify-between">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-amber-100 text-xs sm:text-sm font-medium">Tertinggi</p>
-                    <p className="text-lg sm:text-lg md:text-xl font-bold text-white leading-tight mt-1 truncate">
-                      {expenses.length > 0 ? formatCurrency(animatedMaxExpense.value) : "Rp 0"}
-                    </p>
-                  </div>
-                  <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-                    <TrendingDown className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
-                  </div>
-                </div>
-                <p className="text-xs mt-3 text-amber-200">single transaction</p>
-              </div>
-            </div>
-
-            {/* Total Pengeluaran */}
-            <div className="rounded-xl bg-gradient-to-br from-red-500 to-red-600 border-0 shadow-lg h-full">
-              <div className="p-4 sm:p-5 h-full flex flex-col justify-between">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-red-100 text-xs sm:text-sm font-medium">Total Pengeluaran</p>
-                    <p className="text-lg sm:text-lg md:text-xl font-bold text-white leading-tight mt-1">{formatCurrency(animatedTotalExpense.value)}</p>
-                  </div>
-                  <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-                    <Wallet className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
-                  </div>
-                </div>
-                <p className="text-xs mt-3 text-red-200">{animatedTotalCount.value} transaksi</p>
-              </div>
-            </div>
+          {/* Mobile 3-Dots Action Menu */}
+          <div className="sm:hidden flex items-center">
+            <ActionMenu
+              items={[
+                {
+                  label: "Tambah Pengeluaran",
+                  icon: <Plus className="h-4 w-4 text-primary" />,
+                  onClick: () => handleOpenDialog(),
+                },
+                {
+                  label: "Download Excel",
+                  icon: <Download className="h-4 w-4 text-primary" />,
+                  onClick: () => setShowDownloadDialog(true),
+                },
+              ]}
+            />
           </div>
 
-          {/* Filters & Actions */}
-          <div className="flex flex-col md:flex-row gap-3 mb-5">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-              <Input
-                placeholder="Cari pengeluaran..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
-              />
-            </div>
+          {/* Desktop Buttons */}
+          <div className="hidden sm:flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowDownloadDialog(true)}
+              className="h-8 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 gap-2"
+            >
+              <Download className="w-4 h-4 text-primary" />
+              <span className="font-medium text-xs sm:text-sm">Download</span>
+            </Button>
+            <Button onClick={() => handleOpenDialog()} className="h-8 flex items-center justify-center gap-2 text-white bg-primary shadow-sm rounded-sm px-4">
+              <Plus className="w-4 h-4" />
+              <span className="font-medium text-xs sm:text-sm">Tambah</span>
+            </Button>
+          </div>
+        </div>
 
-            <div className="flex flex-row items-center justify-center md:justify-start gap-2 overflow-x-auto scrollbar-hide py-0.5 shrink-0 w-full md:w-auto">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 flex items-center justify-center flex-1 md:flex-initial w-full md:w-auto gap-2">
-                    <SlidersHorizontal className="w-4 h-4 text-primary" />
-                    <span className="font-medium text-xs sm:text-sm">Filter</span>
-
-                    {/* Indicator if any filter is active */}
-                    {(selectedCategory !== "all" || selectedOutlet !== "all" || selectedUserId !== "all" || startDate !== "" || endDate !== "") && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-[320px] sm:w-[380px] p-4 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800">
-                  <div className="flex items-center gap-2 font-semibold text-slate-900 dark:text-white mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
-                    <SlidersHorizontal className="w-5 h-5 text-primary" />
-                    Filter Pengeluaran
+        {isLoading ? (
+          <div className="flex-1 overflow-auto scrollbar-hide flex items-center justify-center">
+            <LoadingSpinner text="Memuat data pengeluaran..." />
+          </div>
+        ) : (
+          <>
+            <div className="p-5 flex-1 overflow-auto scrollbar-hide">
+              {isDialogOpen ? (
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-none shadow-sm mb-6">
+                  <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800">
+                    <h2 className="text-lg font-semibold">{editingExpense ? "Edit Pengeluaran" : "Tambah Pengeluaran"}</h2>
+                    <Button variant="ghost" size="icon" onClick={() => !isUploading && setIsDialogOpen(false)} className="h-8 w-8 rounded-none">
+                      <X className="w-4 h-4" />
+                    </Button>
                   </div>
 
-                  <div className="space-y-4">
-                    {/* Date Filters */}
+                  <div className="p-4 sm:p-6 space-y-6">
+                    {/* Image Upload */}
                     <div className="space-y-2">
-                      <Label className="text-xs font-medium text-slate-500">Rentang Tanggal</Label>
-                      <div className="flex flex-col sm:flex-row items-center gap-2 w-full">
-                        <div className="relative w-full h-9">
+                      <label className="text-sm font-medium">
+                        Foto Bukti Transaksi
+
+                      </label>
+                      <div className="flex flex-col items-start gap-3">
+                        <label htmlFor="receipt-upload" className="relative w-32 h-32 rounded-sm border-2 border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 flex items-center justify-center overflow-hidden cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group">
+                          {imagePreview ? (
+                            <>
+                              <img src={imagePreview} alt="Preview" className="w-full h-full object-cover group-hover:opacity-75 transition-opacity" />
+                              <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Upload className="w-6 h-6 text-white drop-shadow-md mb-1" />
+                                <span className="text-xs font-semibold text-white drop-shadow-md">Ganti Foto</span>
+                              </div>
+                              <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleRemoveImage(); }} className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors z-10">
+                                <X className="w-4 h-4" />
+                              </button>
+                            </>
+                          ) : (
+                            <div className="flex flex-col items-center text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
+                              <ImageIcon className="w-8 h-8 mb-1" />
+                              <span className="text-xs font-medium">Pilih Foto</span>
+                            </div>
+                          )}
+                        </label>
+
+                        <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageChange} className="hidden" id="receipt-upload" />
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Format: JPG, PNG, WebP. Maks: 500KB</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Category */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Kategori</label>
+                        <SearchableSelect
+                          options={categories.map((cat) => ({ id: cat.id, name: cat.name }))}
+                          value={formData.category}
+                          onChange={(id) => setFormData({ ...formData, category: id })}
+                          placeholder="Pilih kategori"
+                          onCreate={handleQuickCreateCategory}
+                          onDelete={handleDeleteCategory}
+                        />
+                      </div>
+
+                      {/* Date */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Tanggal</label>
+                        <div className="relative">
                           <Input
-                            type="text"
-                            placeholder="Tanggal Mulai"
-                            value={startDate ? startDate.split('-').reverse().join('-') : ""}
-                            readOnly
-                            className="absolute inset-0 h-9 w-full rounded-md text-sm text-center bg-transparent focus:ring-0 cursor-pointer"
-                          />
-                          <input
                             type="date"
-                            value={startDate}
-                            onChange={(e: any) => setStartDate(e.target.value)}
+                            value={formData.date}
+                            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                             onClick={(e: any) => {
                               try { e.target.showPicker?.(); } catch (err) { }
                             }}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                            title="Tanggal Mulai"
+                            className="pr-10 w-full custom-date-input cursor-pointer"
                           />
-                        </div>
-                        <span className="text-slate-400 text-sm hidden sm:block">-</span>
-                        <div className="relative w-full h-9">
-                          <Input
-                            type="text"
-                            placeholder="Tanggal Akhir"
-                            value={endDate ? endDate.split('-').reverse().join('-') : ""}
-                            readOnly
-                            className="absolute inset-0 h-9 w-full rounded-md text-sm text-center bg-transparent focus:ring-0 cursor-pointer"
-                          />
-                          <input
-                            type="date"
-                            value={endDate}
-                            onChange={(e: any) => setEndDate(e.target.value)}
-                            onClick={(e: any) => {
-                              try { e.target.showPicker?.(); } catch (err) { }
-                            }}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                            title="Tanggal Akhir"
-                          />
+                          <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
                         </div>
                       </div>
                     </div>
 
-                    {/* Category Filter */}
-                    <div className="space-y-2">
-                      <Label className="text-xs font-medium text-slate-500">Kategori</Label>
-                      <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                        <SelectTrigger className="w-full h-9">
-                          <SelectValue placeholder="Semua Kategori" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Semua Kategori</SelectItem>
-                          {categories.map((cat) => (
-                            <SelectItem key={cat.id} value={cat.id}>
-                              {cat.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Amount */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Jumlah (Rp)</label>
+                        <Input
+                          type="text"
+                          value={getFormattedAmount()}
+                          onChange={handleAmountChange}
+                          placeholder="0"
+                        />
+                      </div>
+
+                      {/* Supplier */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Suplier (Opsional)</label>
+                        <Input
+                          value={formData.supplier}
+                          onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
+                          placeholder="Nama suplier atau toko"
+                        />
+                      </div>
                     </div>
 
-                    {/* User Filter (Admin Only) */}
-                    {isAdmin && (
-                      <div className="space-y-2">
-                        <Label className="text-xs font-medium text-slate-500">Sales</Label>
-                        <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                          <SelectTrigger className="w-full h-9">
-                            <div className="flex items-center gap-2">
-                              <User className="w-4 h-4 text-slate-400 shrink-0" />
-                              <SelectValue placeholder="Semua Sales" />
+                    {/* Description */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Deskripsi</label>
+                      <Input
+                        value={formData.description}
+                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        placeholder="Contoh: Beli ATK, Bayar listrik"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+                    <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isUploading} className="rounded-none">
+                      Batal
+                    </Button>
+                    <Button onClick={handleSubmit} disabled={isUploading} className="rounded-none">
+                      {isUploading ? "Menyimpan..." : (editingExpense ? "Simpan" : "Tambah")}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-5 items-stretch">
+                    {/* Pengeluaran Hari Ini */}
+                    <div className="rounded-sm bg-gradient-to-br from-blue-500 to-blue-600 border-0 shadow-lg h-full">
+                      <div className="p-4 sm:p-5 h-full flex flex-col justify-between">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-blue-100 text-xs sm:text-sm font-medium">Pengeluaran Hari Ini</p>
+                            <p className="text-lg sm:text-lg md:text-xl font-bold text-white leading-tight mt-1 truncate">
+                              {formatCurrency(animatedTodayTotal.value)}
+                            </p>
+                          </div>
+                          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-sm bg-white/20 flex items-center justify-center shrink-0">
+                            <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                          </div>
+                        </div>
+                        <p className="text-xs mt-3 text-blue-200">{animatedTodayCount.value} transaksi hari ini</p>
+                      </div>
+                    </div>
+
+                    {/* Pengeluaran Bulan Ini */}
+                    <div className="rounded-sm bg-gradient-to-br from-purple-500 to-purple-600 border-0 shadow-lg h-full">
+                      <div className="p-4 sm:p-5 h-full flex flex-col justify-between">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-purple-100 text-xs sm:text-sm font-medium">Pengeluaran Bulan Ini</p>
+                            <p className="text-lg sm:text-lg md:text-xl font-bold text-white leading-tight mt-1 truncate">
+                              {formatCurrency(animatedThisMonthTotal.value)}
+                            </p>
+                          </div>
+                          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-sm bg-white/20 flex items-center justify-center shrink-0">
+                            <Receipt className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                          </div>
+                        </div>
+                        <p className="text-xs mt-3 text-purple-200">{animatedThisMonthCount.value} transaksi bulan ini</p>
+                      </div>
+                    </div>
+
+                    {/* Tertinggi */}
+                    <div className="rounded-sm bg-gradient-to-br from-amber-500 to-orange-600 border-0 shadow-lg h-full">
+                      <div className="p-4 sm:p-5 h-full flex flex-col justify-between">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-amber-100 text-xs sm:text-sm font-medium">Tertinggi</p>
+                            <p className="text-lg sm:text-lg md:text-xl font-bold text-white leading-tight mt-1 truncate">
+                              {expenses.length > 0 ? formatCurrency(animatedMaxExpense.value) : "Rp 0"}
+                            </p>
+                          </div>
+                          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-sm bg-white/20 flex items-center justify-center shrink-0">
+                            <TrendingDown className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                          </div>
+                        </div>
+                        <p className="text-xs mt-3 text-amber-200">single transaction</p>
+                      </div>
+                    </div>
+
+                    {/* Total Pengeluaran */}
+                    <div className="rounded-sm bg-gradient-to-br from-red-500 to-red-600 border-0 shadow-lg h-full">
+                      <div className="p-4 sm:p-5 h-full flex flex-col justify-between">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-red-100 text-xs sm:text-sm font-medium">Total Pengeluaran</p>
+                            <p className="text-lg sm:text-lg md:text-xl font-bold text-white leading-tight mt-1">{formatCurrency(animatedTotalExpense.value)}</p>
+                          </div>
+                          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-sm bg-white/20 flex items-center justify-center shrink-0">
+                            <Wallet className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                          </div>
+                        </div>
+                        <p className="text-xs mt-3 text-red-200">{animatedTotalCount.value} transaksi</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Filters & Actions */}
+                  <div className="mb-4 flex flex-col sm:flex-row gap-3">
+                    <div className="flex items-center gap-2 flex-1">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4" />
+                        <Input
+                          placeholder="Cari pengeluaran..."
+                          value={search}
+                          onChange={(e) => setSearch(e.target.value)}
+                          className="pl-9 shadow-sm"
+                        />
+                      </div>
+
+                      {/* Mobile 1 Filter Button (Popover) */}
+                      <div className="sm:hidden">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="h-9 px-2.5 sm:px-3 relative shadow-sm border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+                              <SlidersHorizontal className="w-4 h-4" />
+                              {(selectedCategory !== "all" || selectedOutlet !== "all" || selectedUserId !== "all") && (
+                                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full" />
+                              )}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent align="end" className="w-[280px] p-4 space-y-3">
+                            <div className="font-semibold text-sm mb-2 text-slate-900 dark:text-white">Filter Data</div>
+
+                            <div className="space-y-1">
+                              <label className="text-xs text-slate-500 font-medium">Kategori</label>
+                              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                                <SelectTrigger className="w-full h-9 text-xs shadow-sm">
+                                  <SelectValue placeholder="Semua Kategori" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">Semua Kategori</SelectItem>
+                                  {categories.map((cat) => (
+                                    <SelectItem key={cat.id} value={cat.name}>
+                                      {cat.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             </div>
+
+                            {isAdmin && (
+                              <div className="space-y-1">
+                                <label className="text-xs text-slate-500 font-medium">Cabang / Outlet</label>
+                                <Select value={selectedOutlet} onValueChange={setSelectedOutlet}>
+                                  <SelectTrigger className="w-full h-9 text-xs shadow-sm">
+                                    <SelectValue placeholder="Semua Outlet" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="all">Semua Outlet</SelectItem>
+                                    {outlets.map((outlet) => (
+                                      <SelectItem key={outlet.id} value={outlet.id}>
+                                        {outlet.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+
+                            {isAdmin && (
+                              <div className="space-y-1">
+                                <label className="text-xs text-slate-500 font-medium">Sales / User</label>
+                                <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                                  <SelectTrigger className="w-full h-9 text-xs shadow-sm">
+                                    <SelectValue placeholder="Semua Sales" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="all">Semua Sales</SelectItem>
+                                    {users.map((user) => (
+                                      <SelectItem key={user.id} value={user.id}>
+                                        {user.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+
+                            {(selectedCategory !== "all" || selectedOutlet !== "all" || selectedUserId !== "all") && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedCategory("all");
+                                  setSelectedOutlet("all");
+                                  setSelectedUserId("all");
+                                }}
+                                className="w-full text-xs text-red-500 hover:text-red-600 h-8 mt-2"
+                              >
+                                Reset Filter
+                              </Button>
+                            )}
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+
+                    {/* Desktop Filters */}
+                    <div className="hidden sm:flex gap-3 w-auto">
+                      <div className="w-[160px]">
+                        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                          <SelectTrigger className="w-full shadow-sm">
+                            <SelectValue placeholder="Semua Kategori" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="all">Semua Sales</SelectItem>
-                            {users.map((user) => (
-                              <SelectItem key={user.id} value={user.id}>
-                                {user.name}
+                            <SelectItem value="all">Semua Kategori</SelectItem>
+                            {categories.map((cat) => (
+                              <SelectItem key={cat.id} value={cat.name}>
+                                {cat.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
-                    )}
-                  </div>
-
-                  {/* Reset Button */}
-                  <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
-                    <Button
-                      variant="outline"
-                      className="w-full h-9 text-xs"
-                      onClick={() => {
-                        setSelectedCategory("all");
-                        setSelectedOutlet("all");
-                        setSelectedUserId("all");
-                        setStartDate("");
-                        setEndDate("");
-                      }}
-                      disabled={selectedCategory === "all" && selectedOutlet === "all" && selectedUserId === "all" && !startDate && !endDate}
-                    >
-                      Atur Ulang Filter
-                    </Button>
-                  </div>
-                </PopoverContent>
-              </Popover>
-
-              {isAdmin && (
-                <Button variant="outline" onClick={() => setIsCategoryDialogOpen(true)} className="h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 flex items-center justify-center flex-1 md:flex-initial w-full md:w-auto gap-2">
-                  <Tag className="w-4 h-4 text-primary" />
-                  <span className="font-medium text-xs sm:text-sm">Kategori</span>
-                </Button>
-              )}
-
-              <Button onClick={() => handleOpenDialog()} className="h-10 flex items-center justify-center flex-1 md:flex-initial w-full md:w-auto gap-2 text-white bg-primary">
-                <Plus className="w-4 h-4" />
-                <span className="font-medium text-xs sm:text-sm">Tambah</span>
-              </Button>
-            </div>
-          </div>
-
-          {/* ── MOBILE & TABLET: Card List ── */}
-          <div className="flex flex-col gap-3 lg:hidden pb-6">
-            {isLoading ? (
-              <div className="text-center py-10 text-slate-500">
-                <div className="flex flex-col items-center gap-3">
-                  <div className="w-10 h-10 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
-                  <p>Memuat data...</p>
-                </div>
-              </div>
-            ) : filteredExpenses.length === 0 ? (
-              <div className="text-center py-10 text-slate-500 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-                <div className="flex flex-col items-center gap-3">
-                  <div className="w-16 h-16 bg-slate-100 dark:bg-slate-900 rounded-2xl flex items-center justify-center">
-                    <Wallet className="w-8 h-8 text-slate-400" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-slate-700 dark:text-slate-300">Belum ada data pengeluaran</p>
-                    <p className="text-sm text-slate-400 mt-1">Tambahkan pengeluaran pertama Anda</p>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={() => handleOpenDialog()} className="mt-2">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Tambah Pengeluaran
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              filteredExpenses.map((expense) => {
-                const staffName = getStaffNameDisplay(expense.owner_id);
-                return (
-                  <div key={expense.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 flex flex-col gap-3">
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                      <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm">
-                        {formatDate(expense.date)}
-                      </div>
-                      <div className="font-bold text-red-600 dark:text-red-400 text-base whitespace-nowrap text-right">
-                        {formatCurrency(expense.amount)}
-                      </div>
-                    </div>
-
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="text-sm text-slate-700 dark:text-slate-300 font-medium break-words flex-1">
-                        <div>{expense.description}</div>
-                        {expense.supplier && (
-                          <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
-                            <Store className="w-3 h-3" />
-                            Suplier: {expense.supplier}
-                          </div>
-                        )}
-                        <div className="flex items-center gap-1.5 mt-2">
-                          <span className={`inline-flex px-2 py-1 text-[10px] sm:text-xs font-medium rounded-full ${getCategoryColor(expense.category)}`}>
-                            {getCategoryLabel(expense.category)}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="shrink-0 flex flex-col items-end gap-2">
-                        {isAdmin && expense.status === 'pending' ? (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleUpdateStatus(expense.id, 'approved'); }}
-                            className="inline-flex px-3.5 py-1.5 text-[10px] sm:text-xs font-bold rounded-md bg-red-600 hover:bg-red-700 text-white transition-all cursor-pointer shadow-md shadow-red-600/20 hover:shadow-lg hover:shadow-red-600/30 hover:-translate-y-0.5 active:translate-y-0 duration-200"
-                          >
-                            Konfirmasi
-                          </button>
-                        ) : (
-                          <span
-                            className={`inline-flex px-2 py-1 text-[10px] sm:text-xs font-medium rounded-full text-white shadow-sm ${
-                              expense.status === 'pending'
-                                ? 'bg-yellow-500'
-                                : expense.status === 'rejected'
-                                ? 'bg-red-500'
-                                : 'bg-green-500'
-                            }`}
-                          >
-                            {expense.status === 'pending' ? 'Pending' : expense.status === 'rejected' ? 'Ditolak' : 'Disetujui'}
-                          </span>
-                        )}
-                        {expense.image_url && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 px-2 text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 mt-2"
-                            onClick={(e) => { e.stopPropagation(); setViewImageUrl(expense.image_url || null); }}
-                          >
-                            <ImageIcon className="w-3 h-3 mr-1" /> Bukti
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between mt-1 pt-3 border-t border-slate-100 dark:border-slate-700/50">
-                      <div className="text-xs text-slate-500 dark:text-slate-400 flex flex-col gap-1.5 font-medium">
-                        <div className="flex items-center gap-1.5">
-                          <User className="w-3.5 h-3.5" />
-                          {staffName}
-                        </div>
-
-                      </div>
                       {isAdmin && (
-                        <div className="flex justify-end gap-1 flex-wrap">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenDialog(expense)}
-                            className="h-8 w-8 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(expense.id)}
-                            className="h-8 w-8 text-red-400 hover:text-red-600 dark:hover:text-red-400"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                        <div className="w-[160px]">
+                          <Select value={selectedOutlet} onValueChange={setSelectedOutlet}>
+                            <SelectTrigger className="w-full shadow-sm">
+                              <SelectValue placeholder="Semua Outlet" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">Semua Outlet</SelectItem>
+                              {outlets.map((outlet) => (
+                                <SelectItem key={outlet.id} value={outlet.id}>
+                                  {outlet.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                      {isAdmin && (
+                        <div className="w-[160px]">
+                          <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                            <SelectTrigger className="w-full shadow-sm">
+                              <SelectValue placeholder="Semua Sales" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">Semua Sales</SelectItem>
+                              {users.map((user) => (
+                                <SelectItem key={user.id} value={user.id}>
+                                  {user.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                       )}
                     </div>
                   </div>
-                );
-              })
-            )}
-          </div>
 
-          {/* ── DESKTOP LARGE: Table (hidden on tablet and below) ── */}
-          <div className="hidden lg:block rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden">
-            <div className="p-4 border-b border-slate-100 dark:border-slate-700">
-              <h3 className="font-semibold text-sm sm:text-base text-slate-900 dark:text-white">Daftar Pengeluaran</h3>
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-slate-50/50 dark:bg-slate-800/50">
-                  <TableHead className="w-12 font-semibold">No</TableHead>
-                  <TableHead className="font-semibold">Tanggal</TableHead>
-                  <TableHead className="font-semibold">Sales</TableHead>
-                  <TableHead className="text-center font-semibold">Kategori</TableHead>
-                  <TableHead className="font-semibold">Deskripsi</TableHead>
-                  <TableHead className="font-semibold text-center">Bukti</TableHead>
-                  <TableHead className="font-semibold">Suplier</TableHead>
-                  <TableHead className="text-right font-semibold">Jumlah</TableHead>
-                  <TableHead className="text-center font-semibold">Status</TableHead>
-                  {isAdmin && <TableHead className="text-right w-[140px] font-semibold">Aksi</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={isAdmin ? 10 : 8} className="text-center py-16 text-slate-500">
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="w-10 h-10 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
-                        <p>Memuat data...</p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : filteredExpenses.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={isAdmin ? 10 : 8} className="text-center py-16 text-slate-500">
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center">
-                          <Wallet className="w-8 h-8 text-slate-400" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-slate-700 dark:text-slate-300">Belum ada data pengeluaran</p>
-                          <p className="text-sm text-slate-400 mt-1">Tambahkan pengeluaran pertama Anda</p>
-                        </div>
-                        <Button variant="outline" size="sm" onClick={() => handleOpenDialog()} className="mt-2">
-                          <Plus className="w-4 h-4 mr-2" />
-                          Tambah Pengeluaran
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredExpenses.map((expense, index) => (
-                    <TableRow key={expense.id} className="border-b dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:shadow-sm relative hover:z-10 transition-all duration-200 cursor-pointer">
-                      <TableCell className="text-slate-400 font-medium">{index + 1}</TableCell>
-                      <TableCell className="text-slate-600 dark:text-slate-400">
-                        {formatDate(expense.date)}
-                      </TableCell>
-                      <TableCell className="text-slate-600 dark:text-slate-400">
-                        {getStaffNameDisplay(expense.owner_id)}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <span
-                          className={`inline-flex px-3 py-1.5 text-xs font-medium rounded-full ${getCategoryColor(
-                            expense.category
-                          )}`}
-                        >
-                          {getCategoryLabel(expense.category)}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-slate-900 dark:text-white font-medium max-w-[200px] truncate">
-                        {expense.description}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {expense.image_url ? (
-                          <div 
-                            className="w-10 h-10 mx-auto rounded-md overflow-hidden border border-slate-200 dark:border-slate-700 cursor-pointer hover:opacity-80 hover:ring-2 hover:ring-primary/50 transition-all"
-                            onClick={(e) => { e.stopPropagation(); setViewImageUrl(expense.image_url || null); }}
-                            title="Lihat Bukti"
-                          >
-                            <img 
-                              src={expense.image_url} 
-                              alt="Bukti" 
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        ) : (
-                          <span className="text-slate-300 dark:text-slate-600">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-slate-600 dark:text-slate-400">
-                        {expense.supplier || "-"}
-                      </TableCell>
-
-                      <TableCell className="text-right font-bold text-red-600 dark:text-red-400">
-                        {formatCurrency(expense.amount)}
-                      </TableCell>
-
-                      <TableCell className="text-center">
-                        {isAdmin && expense.status === 'pending' ? (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleUpdateStatus(expense.id, 'approved'); }}
-                            className="inline-flex px-4 py-2 text-xs font-bold rounded-md bg-red-600 hover:bg-red-700 text-white transition-all cursor-pointer shadow-md shadow-red-600/20 hover:shadow-lg hover:shadow-red-600/30 hover:-translate-y-0.5 active:translate-y-0 duration-200"
-                          >
-                            Konfirmasi
-                          </button>
-                        ) : (
-                          <span
-                            className={`inline-flex px-3 py-1.5 text-xs font-medium rounded-full text-white shadow-sm ${
-                              expense.status === 'pending'
-                                ? 'bg-yellow-500'
-                                : expense.status === 'rejected'
-                                ? 'bg-red-500'
-                                : 'bg-green-500'
-                            }`}
-                          >
-                            {expense.status === 'pending' ? 'Pending' : expense.status === 'rejected' ? 'Ditolak' : 'Disetujui'}
-                          </span>
-                        )}
-                      </TableCell>
-                      {isAdmin && (
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1 flex-wrap">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleOpenDialog(expense)}
-                              className="h-8 w-8 sm:h-9 sm:w-9"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDelete(expense.id)}
-                              className="h-8 w-8 sm:h-9 sm:w-9 text-red-500 hover:text-red-600 dark:hover:text-red-400"
-                            >
-                              <Trash2 className="w-4 h-4" />
+                  <>
+                    {/* ── MOBILE & TABLET: Card List ── */}
+                    <div className="flex flex-col gap-3 md:hidden pb-6">
+                      {filteredExpenses.length === 0 ? (
+                        <div className="text-center py-10 text-slate-500 bg-white dark:bg-slate-900 rounded-sm border border-slate-200 dark:border-slate-800">
+                          <div className="flex flex-col items-center gap-3">
+                            <div>
+                              <p className="font-medium text-slate-700 dark:text-slate-300">Belum ada data pengeluaran</p>
+                              <p className="text-sm text-slate-400 mt-1">Tambahkan pengeluaran pertama Anda</p>
+                            </div>
+                            <Button variant="outline" size="sm" onClick={() => handleOpenDialog()} className="mt-2">
+                              <Plus className="w-4 h-4 mr-2" />
+                              Tambah Pengeluaran
                             </Button>
                           </div>
-                        </TableCell>
+                        </div>
+                      ) : (
+                        filteredExpenses.map((expense) => {
+                          const staffName = getStaffNameDisplay(expense.owner_id);
+                          return (
+                            <div key={expense.id} className="bg-white dark:bg-slate-900 rounded-sm border border-slate-200 dark:border-slate-800 shadow-sm p-3 flex flex-col gap-3 relative">
+                              <div className="flex items-start justify-between gap-2 mb-1">
+                                <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm">
+                                  {formatDate(expense.date)}
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <div className="font-bold text-red-600 dark:text-red-400 text-base whitespace-nowrap text-right">
+                                    {formatCurrency(expense.amount)}
+                                  </div>
+                                  {isAdmin && (
+                                    <div onClick={(e) => e.stopPropagation()}>
+                                      <ActionMenu
+                                        triggerClassName="-mr-2.5 -mt-2.5"
+                                        items={[
+                                          {
+                                            label: "Edit",
+                                            icon: <Edit className="h-4 w-4 text-slate-500 group-hover/menu-item:text-white" />,
+                                            onClick: () => handleOpenDialog(expense),
+                                          },
+                                          {
+                                            label: "Hapus",
+                                            icon: <Trash2 className="h-4 w-4 text-red-500 group-hover/menu-item:text-white" />,
+                                            onClick: () => handleDelete(expense.id),
+                                            destructive: true,
+                                          },
+                                        ]}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="text-sm text-slate-700 dark:text-slate-300 font-medium break-words flex-1">
+                                  <div>{expense.description}</div>
+                                  {expense.supplier && (
+                                    <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
+                                      <Store className="w-3 h-3" />
+                                      Suplier: {expense.supplier}
+                                    </div>
+                                  )}
+                                  <div className="flex items-center gap-1.5 mt-2">
+                                    <span className={`inline-flex px-2 py-1 text-[10px] sm:text-xs font-medium rounded-full ${getCategoryColor(expense.category)}`}>
+                                      {getCategoryLabel(expense.category)}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="shrink-0 flex flex-col items-end gap-2">
+                                  {isAdmin && expense.status === 'pending' ? (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleUpdateStatus(expense.id, 'approved'); }}
+                                      className="inline-flex px-3.5 py-1.5 text-[10px] sm:text-xs font-bold rounded-sm bg-red-600 hover:bg-red-700 text-white transition-all cursor-pointer shadow-md shadow-red-600/20 hover:shadow-lg hover:shadow-red-600/30 hover:-translate-y-0.5 active:translate-y-0 duration-200"
+                                    >
+                                      Konfirmasi
+                                    </button>
+                                  ) : (
+                                    <span
+                                      className={`inline-flex px-2 py-1 text-[10px] sm:text-xs font-medium rounded-full text-white shadow-sm ${expense.status === 'pending'
+                                        ? 'bg-yellow-500'
+                                        : expense.status === 'rejected'
+                                          ? 'bg-red-500'
+                                          : 'bg-green-500'
+                                        }`}
+                                    >
+                                      {expense.status === 'pending' ? 'Pending' : expense.status === 'rejected' ? 'Ditolak' : 'Disetujui'}
+                                    </span>
+                                  )}
+                                  {expense.image_url && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 px-2 text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 mt-2"
+                                      onClick={(e) => { e.stopPropagation(); setViewImageUrl(expense.image_url || null); }}
+                                    >
+                                      <ImageIcon className="w-3 h-3 mr-1" /> Bukti
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between mt-1 pt-3 border-t border-slate-100 dark:border-slate-700/50">
+                                <div className="text-xs text-slate-500 dark:text-slate-400 flex flex-col gap-1.5 font-medium">
+                                  <div className="flex items-center gap-1.5">
+                                    <User className="w-3.5 h-3.5" />
+                                    {staffName}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
                       )}
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-      </div>
-
-      {/* Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          <DialogHeader>
-            <DialogTitle>
-              {editingExpense ? "Edit Pengeluaran" : "Tambah Pengeluaran Baru"}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="category" className="text-sm font-medium">Kategori</Label>
-              <Select
-                value={formData.category}
-                onValueChange={(value) => setFormData({ ...formData, category: value })}
-              >
-                <SelectTrigger id="category" className="h-11">
-                  <SelectValue placeholder="Pilih kategori" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description" className="text-sm font-medium">Deskripsi</Label>
-              <Input
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Contoh: Beli ATK, Bayar listrik"
-                className="h-11"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="supplier" className="text-sm font-medium">Suplier (Opsional)</Label>
-              <Input
-                id="supplier"
-                value={formData.supplier}
-                onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
-                placeholder="Nama suplier atau toko"
-                className="h-11"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="amount" className="text-sm font-medium">Jumlah (Rp)</Label>
-              <Input
-                id="amount"
-                type="text"
-                value={getFormattedAmount()}
-                onChange={handleAmountChange}
-                placeholder="0"
-                className="h-11 text-lg"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="date" className="text-sm font-medium">Tanggal</Label>
-              <div className="relative">
-                <Input
-                  id="date"
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  className="h-11 pr-10 w-full custom-date-input"
-                />
-                <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-sm font-medium flex justify-between items-center">
-                <span>Foto Bukti Transaksi</span>
-                <span className="text-xs font-normal text-slate-400">(Opsional)</span>
-              </Label>
-              
-              <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-300 dark:border-slate-700 border-dashed rounded-xl relative overflow-hidden group">
-                <div className="space-y-1 text-center relative z-10">
-                  {imagePreview ? (
-                    <div className="relative group/preview">
-                      <img 
-                        src={imagePreview} 
-                        alt="Preview" 
-                        className="mx-auto h-32 w-auto rounded-lg object-contain bg-slate-100 dark:bg-slate-800" 
-                      />
-                      <button
-                        type="button"
-                        onClick={handleRemoveImage}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
                     </div>
-                  ) : (
-                    <>
-                      <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3 text-slate-400 group-hover:text-primary group-hover:bg-primary/10 transition-colors">
-                         <Camera className="mx-auto h-6 w-6" aria-hidden="true" />
+
+                    {/* ── DESKTOP LARGE: Table (hidden on tablet and below) ── */}
+                    <div className="hidden md:block rounded-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                      <div className="overflow-x-auto scrollbar-hide">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-slate-50 dark:bg-slate-800/50">
+                              <TableHead className="w-16 text-center">No</TableHead>
+                              <TableHead className="whitespace-nowrap">Tanggal</TableHead>
+                              <TableHead className="whitespace-nowrap">Sales</TableHead>
+                              <TableHead className="text-center whitespace-nowrap">Kategori</TableHead>
+                              <TableHead>Deskripsi</TableHead>
+                              <TableHead className="text-center whitespace-nowrap">Bukti</TableHead>
+                              <TableHead className="whitespace-nowrap">Suplier</TableHead>
+                              <TableHead className="text-right whitespace-nowrap">Jumlah</TableHead>
+                              <TableHead className="text-center whitespace-nowrap">Status</TableHead>
+                              {isAdmin && <TableHead className="w-[50px] text-center whitespace-nowrap">Aksi</TableHead>}
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredExpenses.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={isAdmin ? 10 : 8} className="text-center py-16 text-slate-500">
+                                  <div className="flex flex-col items-center gap-3">
+
+                                    <div>
+                                      <p className="font-medium text-slate-700 dark:text-slate-300">Belum ada data pengeluaran</p>
+
+                                    </div>
+                                    <Button variant="outline" size="sm" onClick={() => handleOpenDialog()} className="mt-2">
+                                      <Plus className="w-4 h-4 mr-2" />
+                                      Tambah Pengeluaran
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              filteredExpenses.map((expense, index) => (
+                                <TableRow key={expense.id} className="border-b dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:shadow-sm relative hover:z-10 transition-all duration-200 cursor-pointer">
+                                  <TableCell className="text-slate-400 font-medium text-center">{index + 1}</TableCell>
+                                  <TableCell className="text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                    {formatDate(expense.date)}
+                                  </TableCell>
+                                  <TableCell className="font-semibold text-slate-900 dark:text-white whitespace-nowrap">
+                                    {getStaffNameDisplay(expense.owner_id)}
+                                  </TableCell>
+                                  <TableCell className="text-center whitespace-nowrap">
+                                    <Badge
+                                      className={`rounded border-0 font-semibold shadow-none whitespace-nowrap hover:opacity-80 ${getCategoryColor(
+                                        expense.category
+                                      )}`}
+                                    >
+                                      {getCategoryLabel(expense.category)}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-slate-900 dark:text-white font-medium max-w-[200px] truncate">
+                                    {expense.description}
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    {expense.image_url ? (
+                                      <div
+                                        className="w-10 h-10 mx-auto rounded-sm overflow-hidden border border-slate-200 dark:border-slate-700 cursor-pointer hover:opacity-80 hover:ring-2 hover:ring-primary/50 transition-all"
+                                        onClick={(e) => { e.stopPropagation(); setViewImageUrl(expense.image_url || null); }}
+                                        title="Lihat Bukti"
+                                      >
+                                        <img
+                                          src={expense.image_url}
+                                          alt="Bukti"
+                                          className="w-full h-full object-cover"
+                                        />
+                                      </div>
+                                    ) : (
+                                      <span className="text-slate-300 dark:text-slate-600">-</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                    {expense.supplier || "-"}
+                                  </TableCell>
+
+                                  <TableCell className="text-right font-bold text-red-600 dark:text-red-400 whitespace-nowrap">
+                                    {formatCurrency(expense.amount)}
+                                  </TableCell>
+
+                                  <TableCell className="text-center whitespace-nowrap">
+                                    {isAdmin && expense.status === 'pending' ? (
+                                      <Badge
+                                        variant="destructive"
+                                        onClick={(e) => { e.stopPropagation(); handleUpdateStatus(expense.id, 'approved'); }}
+                                        className="rounded cursor-pointer bg-red-600 hover:bg-red-700 text-white font-semibold whitespace-nowrap shadow-sm"
+                                      >
+                                        Konfirmasi
+                                      </Badge>
+                                    ) : (
+                                      <Badge
+                                        className={`rounded font-semibold whitespace-nowrap border-0 shadow-none text-white ${expense.status === 'pending'
+                                          ? 'bg-amber-500 hover:bg-amber-600'
+                                          : expense.status === 'rejected'
+                                            ? 'bg-red-500 hover:bg-red-600'
+                                            : 'bg-green-500 hover:bg-green-600'
+                                          }`}
+                                      >
+                                        {expense.status === 'pending' ? 'Pending' : expense.status === 'rejected' ? 'Ditolak' : 'Disetujui'}
+                                      </Badge>
+                                    )}
+                                  </TableCell>
+                                  {isAdmin && (
+                                    <TableCell className="text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                      <ActionMenu
+                                        items={[
+                                          {
+                                            label: "Edit",
+                                            icon: <Edit className="h-4 w-4 text-slate-500 group-hover/menu-item:text-white" />,
+                                            onClick: () => handleOpenDialog(expense),
+                                          },
+                                          {
+                                            label: "Hapus",
+                                            icon: <Trash2 className="h-4 w-4 text-red-500 group-hover/menu-item:text-white" />,
+                                            onClick: () => handleDelete(expense.id),
+                                            destructive: true,
+                                          },
+                                        ]}
+                                      />
+                                    </TableCell>
+                                  )}
+                                </TableRow>
+                              ))
+                            )}
+                          </TableBody>
+                        </Table>
                       </div>
-                      <div className="flex text-sm text-slate-600 dark:text-slate-400 justify-center">
-                        <label
-                          htmlFor="receipt-upload"
-                          className="relative cursor-pointer rounded-md font-medium text-primary hover:text-primary/80 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-primary"
-                        >
-                          <span>Upload file</span>
-                          <input 
-                            id="receipt-upload" 
-                            name="receipt-upload" 
-                            type="file" 
-                            accept="image/jpeg,image/png,image/webp" 
-                            className="sr-only" 
-                            onChange={handleImageChange}
-                          />
-                        </label>
-                      </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Format: JPG, PNG, WebP. Maks: 500KB</p>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="h-11" disabled={isUploading}>
-              Batal
-            </Button>
-            <Button onClick={handleSubmit} className="h-11 px-6" disabled={isUploading}>
-              {isUploading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Menyimpan...
+                    </div>
+                  </>
                 </>
-              ) : editingExpense ? "Simpan" : "Tambah"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              )}
+            </div>
+          </>
+        )}
+      </div>
 
       {/* Category Management Dialog */}
       <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
@@ -1648,9 +1695,9 @@ export default function ExpensesPage() {
               <Button onClick={handleAddCategory}>Tambah</Button>
             </div>
 
-            <div className="max-h-[300px] overflow-y-auto space-y-2 border rounded-md p-2">
+            <div className="max-h-[300px] overflow-y-auto scrollbar-hide space-y-2 border rounded-sm p-2">
               {categories.map((cat) => (
-                <div key={cat.id} className="flex items-center justify-between p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg group">
+                <div key={cat.id} className="flex items-center justify-between p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-sm group">
                   <div className="flex items-center gap-2">
                     <span className={`w-3 h-3 rounded-full ${getBadgeDotColor(cat.color)}`} />
                     <span className="font-medium text-slate-700 dark:text-slate-300">{cat.name}</span>
@@ -1678,93 +1725,85 @@ export default function ExpensesPage() {
 
       {/* Download Excel Dialog for Expenses */}
       <Dialog open={showDownloadDialog} onOpenChange={setShowDownloadDialog}>
-        <DialogContent className="max-w-sm mx-auto">
+        <DialogContent className="sm:max-w-xl rounded-sm sm:rounded-sm max-h-[90vh] overflow-y-auto scrollbar-hide">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <FileDown className="w-5 h-5 text-primary" />
               Download Laporan
             </DialogTitle>
-            <DialogDescription className="text-xs">
-              Pilih periode untuk download pengeluaran (Excel)
+            <DialogDescription>
+              Pilih periode untuk download pengeluaran (Excel).
             </DialogDescription>
           </DialogHeader>
 
-          {isAdmin && (
-            <div className="space-y-2 mt-2">
-              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                <SelectTrigger className="h-10">
-                  <SelectValue placeholder="Semua Sales" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua Sales</SelectItem>
-                  {users.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          <div className="space-y-4 py-4">
+            {isAdmin && (
+              <div className="space-y-1.5">
+                <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                  <SelectTrigger className="h-9 rounded-none">
+                    <SelectValue placeholder="Semua Sales" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Sales</SelectItem>
+                    {users.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
-          <div className="space-y-3 mt-4 py-4 border-t border-slate-100 dark:border-slate-800">
-            <Label className="text-sm font-bold text-slate-700 dark:text-slate-300">Pilih Rentang Waktu</Label>
-            <div className="flex flex-col gap-3 w-full">
-              <div className="space-y-1.5 w-full">
-                <Label className="text-xs text-slate-500 font-medium">Dari Tanggal</Label>
-                <div className="relative w-full h-11">
-                  <Input
-                    type="text"
-                    placeholder="Pilih Tanggal Mulai"
-                    value={downloadStartDate ? downloadStartDate.split('-').reverse().join('-') : ""}
-                    readOnly
-                    className="absolute inset-0 h-11 w-full rounded-lg text-sm text-center bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 font-medium cursor-pointer shadow-sm hover:border-primary transition-colors"
-                  />
-                  <input
-                    type="date"
-                    value={downloadStartDate}
-                    onChange={(e) => setDownloadStartDate(e.target.value)}
-                    onClick={(e: any) => {
-                      try { e.target.showPicker?.(); } catch (err) { }
-                    }}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    title="Tanggal Mulai"
-                  />
+            <div className="space-y-3">
+
+              <div className="flex flex-col gap-3 w-full">
+                <div className="space-y-1.5 w-full">
+                  <Label className="text-sm font-medium">Dari Tanggal</Label>
+                  <div className="relative w-full h-9">
+                    <Input
+                      type="text"
+                      placeholder="Pilih Tanggal Mulai"
+                      value={downloadStartDate ? downloadStartDate.split('-').reverse().join('-') : ""}
+                      readOnly
+                      className="absolute inset-0 h-9 w-full rounded-none text-sm font-medium cursor-pointer"
+                    />
+                    <input
+                      type="date"
+                      value={downloadStartDate}
+                      onChange={(e) => setDownloadStartDate(e.target.value)}
+                      onClick={(e: any) => {
+                        try { e.target.showPicker?.(); } catch (err) { }
+                      }}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      title="Tanggal Mulai"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 w-full">
+                  <Label className="text-sm font-medium">Sampai Tanggal</Label>
+                  <div className="relative w-full h-9">
+                    <Input
+                      type="text"
+                      placeholder="Pilih Tanggal Akhir"
+                      value={downloadEndDate ? downloadEndDate.split('-').reverse().join('-') : ""}
+                      readOnly
+                      className="absolute inset-0 h-9 w-full rounded-none text-sm font-medium cursor-pointer"
+                    />
+                    <input
+                      type="date"
+                      value={downloadEndDate}
+                      onChange={(e) => setDownloadEndDate(e.target.value)}
+                      onClick={(e: any) => {
+                        try { e.target.showPicker?.(); } catch (err) { }
+                      }}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      title="Tanggal Akhir"
+                    />
+                  </div>
                 </div>
               </div>
-
-              <div className="space-y-1.5 w-full">
-                <Label className="text-xs text-slate-500 font-medium">Sampai Tanggal</Label>
-                <div className="relative w-full h-11">
-                  <Input
-                    type="text"
-                    placeholder="Pilih Tanggal Akhir"
-                    value={downloadEndDate ? downloadEndDate.split('-').reverse().join('-') : ""}
-                    readOnly
-                    className="absolute inset-0 h-11 w-full rounded-lg text-sm text-center bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 font-medium cursor-pointer shadow-sm hover:border-primary transition-colors"
-                  />
-                  <input
-                    type="date"
-                    value={downloadEndDate}
-                    onChange={(e) => setDownloadEndDate(e.target.value)}
-                    onClick={(e: any) => {
-                      try { e.target.showPicker?.(); } catch (err) { }
-                    }}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    title="Tanggal Akhir"
-                  />
-                </div>
-              </div>
             </div>
-
-            <Button
-              onClick={handleExportExpenses}
-              disabled={downloadLoading || !downloadStartDate || !downloadEndDate}
-              className="w-full h-12 text-sm font-bold mt-2 shadow-sm"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              {downloadLoading ? "Mengunduh..." : "Download Laporan Excel"}
-            </Button>
 
             {/* Expenses count preview */}
             {downloadStartDate && downloadEndDate ? (() => {
@@ -1775,33 +1814,43 @@ export default function ExpensesPage() {
 
               if (start > end) {
                 return (
-                  <p className="text-xs text-red-500 font-medium text-center pt-2">
+                  <p className="text-sm text-red-500 font-medium text-center -mt-1">
                     Tanggal akhir harus lebih besar atau sama dengan tanggal mulai
                   </p>
                 );
               }
 
               return (
-                <p className="text-xs text-slate-500 font-medium text-center pt-2">
-                  <span className="font-bold text-slate-700 dark:text-slate-300">{downloadCount !== null ? downloadCount : 0}</span> pengeluaran ditemukan pada rentang waktu ini.
+                <p className="text-xs text-slate-500 font-medium text-center -mt-1">
+                  <span className="text-slate-700 dark:text-slate-300">{downloadCount !== null ? downloadCount : 0}</span> pengeluaran ditemukan pada rentang waktu ini.
                 </p>
               );
             })() : (
-              <p className="text-xs text-slate-500 font-medium text-center pt-2">
+              <p className="text-xs text-slate-500 text-center -mt-1">
                 Pilih tanggal untuk melihat jumlah pengeluaran yang akan didownload.
               </p>
             )}
-          </div>
 
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowDownloadDialog(false)}
-              className="w-full"
-            >
-              Batal
-            </Button>
-          </DialogFooter>
+            <div className="w-full h-px bg-slate-200 dark:bg-slate-800 my-3" />
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowDownloadDialog(false)}
+                className="h-9 rounded-none"
+              >
+                Batal
+              </Button>
+              <Button
+                onClick={handleExportExpenses}
+                disabled={downloadLoading || !downloadStartDate || !downloadEndDate}
+                className="h-9 rounded-none"
+              >
+                {downloadLoading ? "Mengunduh..." : "Download Excel"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -1822,12 +1871,50 @@ export default function ExpensesPage() {
               <img
                 src={viewImageUrl}
                 alt="Bukti Transaksi"
-                className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl"
+                className="max-w-full max-h-[80vh] object-contain rounded-sm shadow-2xl"
               />
             )}
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Category Delete Confirmation */}
+      <AlertDialog open={!!categoryToDelete} onOpenChange={(open) => !open && setCategoryToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Kategori {categories.find((c) => c.id === categoryToDelete)?.name}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Apakah Anda yakin ingin menghapus kategori ini?<br></br>Tindakan ini tidak dapat dibatalkan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="w-full h-px bg-slate-200 dark:bg-slate-800 my-1" />
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteCategory} className="bg-red-600 hover:bg-red-700 text-white">
+              Hapus
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Expense Delete Confirmation */}
+      <AlertDialog open={!!expenseToDelete} onOpenChange={(open) => !open && setExpenseToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Pengeluaran ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Apakah Anda yakin ingin menghapus data pengeluaran ini?<br></br>Tindakan ini tidak dapat dibatalkan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="w-full h-px bg-slate-200 dark:bg-slate-800 my-1" />
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteExpense} className="bg-red-600 hover:bg-red-700 text-white">
+              Hapus
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </Sidebar>
   );

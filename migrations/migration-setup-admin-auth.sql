@@ -5,13 +5,13 @@
 -- Langkah: Supabase Dashboard → Authentication → Users
 --          → Add user → Create new user
 --
---   Email   : sbagiamu.pos@gmail.com
+--   Email   : elproject.pos@gmail.com
 --   Password: admin123
 --   ✓ Auto Confirm User (centang)
 --
 --   User Metadata (opsional):
 --   {
---     "name": "Admin SBAGIAMU",
+--     "name": "Admin elproject",
 --     "role": "admin"
 --   }
 -- ============================================================

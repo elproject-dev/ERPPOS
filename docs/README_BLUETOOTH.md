@@ -57,7 +57,7 @@ kasir/
 │
 ├── android/
 │   └── app/
-│       ├── build.gradle                 # Package: com.sbagiamu.app
+│       ├── build.gradle                 # Package: com.elproject.app
 │       └── src/main/
 │           └── AndroidManifest.xml      # All permissions configured
 │
@@ -76,8 +76,8 @@ kasir/
 ```bash
 # Device already has the app installed!
 # Check status:
-adb shell pm list packages | findstr com.sbagiamu.app
-# Result: package:com.sbagiamu.app
+adb shell pm list packages | findstr com.elproject.app
+# Result: package:com.elproject.app
 
 # Device info:
 adb devices -l
@@ -251,7 +251,7 @@ Disconnect after test
 ## 📊 Technical Specifications
 
 ### App Details
-- **Package Name**: `com.sbagiamu.app`
+- **Package Name**: `com.elproject.app`
 - **Version**: 1.0
 - **Build Type**: Debug APK
 - **Size**: 4.41 MB
@@ -338,10 +338,10 @@ adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 adb logcat | grep -i "bluetooth\|chromium"
 
 # Launch app
-adb shell am start -n com.sbagiamu.app/.MainActivity
+adb shell am start -n com.elproject.app/.MainActivity
 
 # Check app status
-adb shell pidof com.sbagiamu.app
+adb shell pidof com.elproject.app
 ```
 
 ---
@@ -461,6 +461,6 @@ The Kasir app now has **full Bluetooth printer support** with:
 
 **Last Updated**: June 7, 2026  
 **Deployed To**: Xiaomi Redmi Note 9 Pro  
-**App Package**: com.sbagiamu.app  
+**App Package**: com.elproject.app  
 **Status**: ✅ COMPLETE & READY
 

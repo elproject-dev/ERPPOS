@@ -298,27 +298,27 @@ export const useGetDashboardMargin = (params?: any) => {
     try {
       const { data: products } = await applyTenantFilterForTable(supabase.from('products').select('id, hpp'), 'products');
       const hppMap = new Map((products || []).map((p: any) => [p.id, Number(p.hpp)]));
-      
+
       if (hppMap.size === 0) {
-         setData({ todayMargin: 0, yesterdayMargin: 0, margin: 0, changePercent: 0, changeText: 'Tidak berubah', isPositive: true, hasHpp: false });
-         setIsLoading(false);
-         return;
+        setData({ todayMargin: 0, yesterdayMargin: 0, margin: 0, changePercent: 0, changeText: 'Tidak berubah', isPositive: true, hasHpp: false });
+        setIsLoading(false);
+        return;
       }
 
       const now = new Date();
       const isCustomDate = !!params?.startDate || !!params?.endDate;
-      
+
       let startOfRange = new Date();
-      startOfRange.setHours(0,0,0,0);
+      startOfRange.setHours(0, 0, 0, 0);
       let endOfRange = new Date();
-      endOfRange.setHours(23,59,59,999);
-      
+      endOfRange.setHours(23, 59, 59, 999);
+
       let startOfYesterday = new Date(now);
       startOfYesterday.setDate(startOfYesterday.getDate() - 1);
-      startOfYesterday.setHours(0,0,0,0);
+      startOfYesterday.setHours(0, 0, 0, 0);
       let endOfYesterday = new Date(now);
       endOfYesterday.setDate(endOfYesterday.getDate() - 1);
-      endOfYesterday.setHours(23,59,59,999);
+      endOfYesterday.setHours(23, 59, 59, 999);
 
       if (isCustomDate) {
         startOfRange = params?.startDate ? new Date(params.startDate + 'T00:00:00') : new Date(params.endDate + 'T00:00:00');
@@ -349,38 +349,48 @@ export const useGetDashboardMargin = (params?: any) => {
       const { data: transactions, error: trxError } = await trxQuery;
       if (trxError) throw trxError;
 
-      let returnsQuery = applyTenantFilter(
-        supabase
-          .from('customer_returns')
-          .select('id, return_date, return_items(product_id, quantity, refund_amount, subtotal)')
+      const trxIds = (transactions || []).map((t: any) => t.id);
+
+      // Fetch completed returns for these transactions
+      let returnsData: any[] = [];
+      if (trxIds.length > 0) {
+        const { data: retData } = await supabase
+          .from('sales_returns')
+          .select('*, sales_return_items(*)')
           .eq('status', 'completed')
-          .gte('return_date', fetchStartIso)
-          .lte('return_date', fetchEndIso)
-      );
-      const { data: returnsData } = await returnsQuery;
+          .in('transaction_id', trxIds);
+        returnsData = retData || [];
+      }
+
+      // Fetch confirmed payments for these transactions
+      let paymentsData: any[] = [];
+      if (trxIds.length > 0) {
+        const { data: payData } = await supabase
+          .from('transaction_payments')
+          .select('*')
+          .eq('status', 'confirmed')
+          .in('transaction_id', trxIds);
+        paymentsData = payData || [];
+      }
+
+      const returnsByTrx = new Map<number, any[]>();
+      (returnsData || []).forEach((ret: any) => {
+        const list = returnsByTrx.get(ret.transaction_id) || [];
+        list.push(ret);
+        returnsByTrx.set(ret.transaction_id, list);
+      });
+
+      const paymentsByTrx = new Map<number, any[]>();
+      (paymentsData || []).forEach((pay: any) => {
+        const list = paymentsByTrx.get(pay.transaction_id) || [];
+        list.push(pay);
+        paymentsByTrx.set(pay.transaction_id, list);
+      });
 
       let totalMargin = 0;
       let todayMargin = 0;
       let yesterdayMargin = 0;
       let hasData = false;
-
-      const getReturnMarginForDate = (dateStart: Date, dateEnd: Date) => {
-         let rMargin = 0;
-         (returnsData || []).forEach((ret: any) => {
-            const rDate = new Date(ret.return_date);
-            if (rDate >= dateStart && rDate <= dateEnd) {
-               (ret.return_items || []).forEach((rItem: any) => {
-                  const hpp = hppMap.get(rItem.product_id);
-                  if (hpp) {
-                     const returnedCost = Number(rItem.quantity) * (hpp as number);
-                     const returnedRevenue = Number(rItem.subtotal) || Number(rItem.refund_amount) || 0;
-                     rMargin += (returnedRevenue - returnedCost);
-                  }
-               });
-            }
-         });
-         return rMargin;
-      };
 
       (transactions || []).forEach((trx: any) => {
         const trxDate = new Date(trx.created_at);
@@ -389,41 +399,61 @@ export const useGetDashboardMargin = (params?: any) => {
 
         if (!isToday && !isYesterday) return;
 
-        let trxGrossMargin = 0;
-        let trxNetTotal = Number(trx.subtotal) || 0;
+        let grossSubtotal = Number(trx.subtotal) || 0;
+        let trxDiscount = Number(trx.discount) || 0;
+        let grossCogs = 0;
 
         (trx.transaction_items || []).forEach((item: any) => {
           const hpp = hppMap.get(item.product_id);
-          if (!hpp) return;
-          const cogs = Number(item.quantity) * (hpp as number);
-          const revenue = Number(item.subtotal) || 0;
-          trxGrossMargin += (revenue - cogs);
-          hasData = true;
+          if (hpp !== undefined) {
+            grossCogs += Number(item.quantity) * (hpp as number);
+            hasData = true;
+          }
         });
 
-        // Parse discount specifically for margin (deduct both global and admin if available, or just fallback to trx.discount)
-        const trxDiscount = Number(trx.discount) || 0;
-        trxGrossMargin -= trxDiscount;
+        const trxReturns = returnsByTrx.get(trx.id) || [];
+        let totalReturnedSubtotal = 0;
+        let totalReturnedCogs = 0;
+        let totalCashRefund = 0;
 
-        const trxRemaining = Math.max(0, Number(trx.remaining_balance) || 0);
-        const trxKasMasuk = Math.max(0, trxNetTotal - trxRemaining);
-        const paymentRatio = trxNetTotal > 0 ? trxKasMasuk / trxNetTotal : 0;
-        const cashBasisMargin = trxGrossMargin * paymentRatio;
+        trxReturns.forEach((ret: any) => {
+          totalCashRefund += Number(ret.total_refund) || 0;
+          (ret.sales_return_items || []).forEach((rItem: any) => {
+            totalReturnedSubtotal += Number(rItem.refund_amount) || 0;
+            const hpp = hppMap.get(rItem.product_id);
+            if (hpp !== undefined) {
+              totalReturnedCogs += Number(rItem.quantity) * (hpp as number);
+            }
+          });
+        });
+
+        const returnRatio = grossSubtotal > 0 ? Math.min(1, totalReturnedSubtotal / grossSubtotal) : 0;
+        const netDiscount = trxDiscount * (1 - returnRatio);
+
+        const netSales = Math.max(0, grossSubtotal - totalReturnedSubtotal - netDiscount);
+        const netCogs = Math.max(0, grossCogs - totalReturnedCogs);
+        const netGrossMargin = netSales - netCogs;
+
+        const trxPayments = paymentsByTrx.get(trx.id) || [];
+        const confirmedPaymentsSum = trxPayments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+        const initialAmountPaid = Number(trx.amount_paid) || 0;
+        const totalCashCollected = initialAmountPaid + confirmedPaymentsSum;
+        const netCashCollected = Math.max(0, totalCashCollected - totalCashRefund);
+
+        const isFullySettled = (Number(trx.remaining_balance) <= 0) || (trx.payment_status === 'paid');
+        const cashRatio = isFullySettled ? 1 : (netSales > 0 ? Math.min(1, Math.max(0, netCashCollected / netSales)) : 0);
+        const realizedMargin = netGrossMargin * cashRatio;
 
         if (isCustomDate) {
-           if (isToday) totalMargin += cashBasisMargin;
+          if (isToday) totalMargin += realizedMargin;
         } else {
-           if (isToday) todayMargin += cashBasisMargin;
-           if (isYesterday) yesterdayMargin += cashBasisMargin;
+          if (isToday) todayMargin += realizedMargin;
+          if (isYesterday) yesterdayMargin += realizedMargin;
         }
       });
-      
-      if (isCustomDate) {
-         totalMargin -= getReturnMarginForDate(startOfRange, endOfRange);
-      } else {
-         todayMargin -= getReturnMarginForDate(startOfRange, endOfRange);
-         yesterdayMargin -= getReturnMarginForDate(startOfYesterday, endOfYesterday);
-         totalMargin = todayMargin;
+
+      if (!isCustomDate) {
+        totalMargin = todayMargin;
       }
 
       const change = yesterdayMargin > 0 ? Math.round(((todayMargin - yesterdayMargin) / yesterdayMargin) * 100) : 0;
@@ -447,7 +477,7 @@ export const useGetDashboardMargin = (params?: any) => {
 
   useEffect(() => {
     fetchMargin();
-    
+
     const channel1 = supabase
       .channel('dashboard_margin_transactions')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, () => fetchMargin())
@@ -545,7 +575,7 @@ export const useGetTopProducts = (params?: any) => {
       if (returnIds.length > 0) {
         const { data: riData } = await supabase
           .from('sales_return_items')
-          .select('product_id, quantity, subtotal')
+          .select('product_id, quantity, refund_amount')
           .in('return_id', returnIds);
         returnItems = riData || [];
       }
@@ -583,7 +613,7 @@ export const useGetTopProducts = (params?: any) => {
         const existing = grouped[ri.product_id];
         if (existing) {
           existing.totalSold = Math.max(0, existing.totalSold - toNumber(ri.quantity));
-          existing.totalRevenue = Math.max(0, existing.totalRevenue - toNumber(ri.subtotal));
+          existing.totalRevenue = Math.max(0, existing.totalRevenue - toNumber(ri.refund_amount));
         }
       });
 
@@ -752,7 +782,7 @@ export const useGetRevenueChart = (params?: any) => {
     setIsLoading(true);
     try {
       let chartStart = new Date();
-      chartStart.setDate(chartStart.getDate() - 6);
+      chartStart.setDate(chartStart.getDate() - 19);
       chartStart.setHours(0, 0, 0, 0);
       let chartEnd = new Date();
       chartEnd.setHours(23, 59, 59, 999);
@@ -761,9 +791,9 @@ export const useGetRevenueChart = (params?: any) => {
         chartStart = params?.startDate ? new Date(params.startDate + "T00:00:00") : new Date(params.endDate + "T00:00:00");
         chartEnd = params?.endDate ? new Date(params.endDate + "T00:00:00") : new Date(params.startDate + "T00:00:00");
 
-        // If only end date, set start to 6 days prior to show a week
+        // If only end date, set start to 19 days prior to show 20 days (20 bars)
         if (!params?.startDate && params?.endDate) {
-          chartStart.setDate(chartStart.getDate() - 6);
+          chartStart.setDate(chartStart.getDate() - 19);
         }
 
         chartStart.setHours(0, 0, 0, 0);
@@ -965,7 +995,7 @@ export const useAdvancedAnalytics = (params?: any) => {
       const productImagesMap = new Map((productsData || []).map((p: any) => [p.id, p.image_url]));
 
       // Fetch Customers to calculate Top Customers overall
-      const { data: allCustomers } = await applyTenantFilterForTable(supabase.from('customers').select('id, name, phone, total_spent, outlet_id'), 'customers');
+      const { data: allCustomers } = await applyTenantFilterForTable(supabase.from('customers').select('id, name, phone, outlet_id'), 'customers');
 
       const totalCustomers = allCustomers ? allCustomers.length : 0;
       const memberPercentage = 0;
@@ -980,6 +1010,7 @@ export const useAdvancedAnalytics = (params?: any) => {
         : (allCustomers || []);
 
       const topCustomersAllTime = [...filteredCustomersForTop]
+        .filter((c: any) => (c.total_spent || 0) > 0)
         .sort((a, b) => (b.total_spent || 0) - (a.total_spent || 0))
         .slice(0, 20)
         .map(c => ({
@@ -1414,7 +1445,7 @@ export const useListTransactions = (params?: any) => {
       let query = applyTenantFilter(
         supabase
           .from('transactions')
-          .select('*, transaction_items(*), customers(name, phone, address, district, city, customer_id_manual), outlets(name, store_name, address, phone)')
+          .select('*, transaction_items(*), customers(name, phone, address, district, city, village, province, postal_code, customer_id_manual), outlets(name, store_name, address, phone)')
           .order('created_at', { ascending: false })
       );
 
@@ -1510,7 +1541,7 @@ export const useGetTransaction = (id: number | undefined) => {
         const { data: transaction, error } = await applyTenantFilter(
           supabase
             .from('transactions')
-            .select('*, transaction_items(*), customers(*), outlets(*)')
+            .select('*, transaction_items(*), customers(*), outlets(*), sales_returns(*)')
             .eq('id', id)
         ).single();
 
@@ -1540,6 +1571,58 @@ export const useDeleteTransaction = () => {
     mutate: async (params: { id: number }, options?: any) => {
       setIsPending(true);
       try {
+        // Fetch transaction to check if it's paid
+        const { data: trx, error: trxError } = await applyTenantFilter(
+          supabase.from('transactions').select('payment_status').eq('id', params.id).single()
+        );
+
+        if (trxError && trxError.code !== 'PGRST116') throw trxError;
+
+        // Get all completed returns for this transaction to avoid double-restoring stock
+        const { data: completedReturns } = await supabase
+          .from('sales_returns').select('id').eq('transaction_id', params.id).eq('status', 'completed');
+
+        let returnedItemsMap: Record<number, number> = {};
+        if (completedReturns && completedReturns.length > 0) {
+          const returnIds = completedReturns.map((r: any) => r.id);
+          const { data: returnItems } = await applyTenantFilter(
+            supabase.from('sales_return_items').select('product_id, quantity').in('return_id', returnIds)
+          );
+          if (returnItems) {
+            returnItems.forEach((ri: any) => {
+              returnedItemsMap[ri.product_id] = (returnedItemsMap[ri.product_id] || 0) + ri.quantity;
+            });
+          }
+        }
+
+        // Restore stock for all deleted transactions
+        const { data: items, error: fetchItemsError } = await applyTenantFilter(
+          supabase.from('transaction_items').select('product_id, quantity').eq('transaction_id', params.id)
+        );
+
+        if (!fetchItemsError && items && items.length > 0) {
+          for (const item of items) {
+            const { data: product } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
+            if (product && product.stock_quantity !== null) {
+              const alreadyReturnedQty = returnedItemsMap[item.product_id] || 0;
+              const qtyToRestore = Math.max(0, item.quantity - alreadyReturnedQty);
+
+              if (qtyToRestore > 0) {
+                const newStock = product.stock_quantity + qtyToRestore;
+                await supabase.from('products').update({ stock_quantity: newStock }).eq('id', item.product_id);
+
+                await supabase.from('stock_movements').insert({
+                  product_id: item.product_id,
+                  quantity: qtyToRestore,
+                  type: 'return',
+                  reference_id: params.id.toString(),
+                  note: `Pembatalan/Hapus Transaksi (Pengembalian Stok) - Status: ${trx?.payment_status || 'unknown'}`
+                });
+              }
+            }
+          }
+        }
+
         const { error: itemsError } = await applyTenantFilter(
           supabase.from('transaction_items').delete().eq('transaction_id', params.id)
         );
@@ -1696,8 +1779,8 @@ export const useCreateProduct = () => {
         // Add default 'pcs' UOM for the new product
         await supabase.from('product_uoms').insert({
           product_id: data.id,
-          unit_name: 'pcs',
-          conversion_factor: 1,
+
+
           is_default: true,
           price: null,
           discount_type: 'none',
@@ -2150,8 +2233,11 @@ export const useCreateCustomer = () => {
             sales_name: params.data.sales_name || null,
             customer_id_manual: customerIdManual,
             address: params.data.address || null,
+            province: params.data.province || null,
             district: params.data.district || null,
             city: params.data.city || null,
+            village: params.data.village || null,
+            postal_code: params.data.postal_code || null,
             ...(params.data.outlet_id !== undefined ? { outlet_id: params.data.outlet_id } : {})
           })
           .select()
@@ -2191,11 +2277,20 @@ export const useUpdateCustomer = () => {
         if (params.data.address !== undefined) {
           updateData.address = params.data.address;
         }
+        if (params.data.province !== undefined) {
+          updateData.province = params.data.province;
+        }
         if (params.data.district !== undefined) {
           updateData.district = params.data.district;
         }
         if (params.data.city !== undefined) {
           updateData.city = params.data.city;
+        }
+        if (params.data.village !== undefined) {
+          updateData.village = params.data.village;
+        }
+        if (params.data.postal_code !== undefined) {
+          updateData.postal_code = params.data.postal_code;
         }
         if (params.data.outlet_id !== undefined) {
           updateData.outlet_id = params.data.outlet_id;
@@ -2267,16 +2362,16 @@ export const useCreateTransaction = () => {
       try {
 
         const localOutletId = localStorage.getItem('selectedOutletId');
-        
+
         // Gunakan outletId dari parameter jika ada secara eksplisit (termasuk jika nilainya null)
         let finalOutletId = null;
         if (params.data && 'outletId' in params.data) {
-           finalOutletId = params.data.outletId;
+          finalOutletId = params.data.outletId;
         } else if (localOutletId && localOutletId !== "all") {
-           const parsed = parseInt(localOutletId);
-           if (!isNaN(parsed)) {
-             finalOutletId = parsed;
-           }
+          const parsed = parseInt(localOutletId);
+          if (!isNaN(parsed)) {
+            finalOutletId = parsed;
+          }
         }
 
         const basePayload = {
@@ -2334,9 +2429,9 @@ export const useCreateTransaction = () => {
               original_price: item.originalPrice || item.original_price || item.price,
               discount_amount: item.discountAmount || item.discount_amount || 0,
               subtotal: item.subtotal || item.total || (item.price * item.quantity),
-              unit_name: item.unitName || item.unit_name || 'pcs',
-              unit_qty: item.unitQty || item.unit_qty || item.quantity,
-              conversion_factor: item.conversionFactor || item.conversion_factor || 1,
+
+
+
             })
           );
 
@@ -2344,8 +2439,11 @@ export const useCreateTransaction = () => {
             .from('transaction_items')
             .insert(items);
 
-          if (itemsError) throw itemsError;
-
+          if (itemsError) {
+            // Rollback transaksi utama jika gagal insert items
+            await supabase.from('transactions').delete().eq('id', data.id);
+            throw itemsError;
+          }
           // Deduct global product stock
           for (const item of params.data.items) {
             const productId = item.productId || item.product_id;
@@ -2394,7 +2492,7 @@ export const useUpdateTransaction = () => {
         // 1. Revert Old Stock
         const { data: oldItems } = await supabase
           .from('transaction_items')
-          .select('product_id, quantity, unit_qty, unit_name, conversion_factor')
+          .select('product_id, quantity')
           .eq('transaction_id', transactionId);
 
         if (oldItems && oldItems.length > 0) {
@@ -2421,12 +2519,12 @@ export const useUpdateTransaction = () => {
         const localOutletId = localStorage.getItem('selectedOutletId');
         let finalOutletId = null;
         if (params.data && 'outletId' in params.data) {
-           finalOutletId = params.data.outletId;
+          finalOutletId = params.data.outletId;
         } else if (localOutletId && localOutletId !== "all") {
-           const parsed = parseInt(localOutletId);
-           if (!isNaN(parsed)) {
-             finalOutletId = parsed;
-           }
+          const parsed = parseInt(localOutletId);
+          if (!isNaN(parsed)) {
+            finalOutletId = parsed;
+          }
         }
 
         const basePayload = {
@@ -2444,7 +2542,6 @@ export const useUpdateTransaction = () => {
           payment_status: params.data.paymentStatus || 'paid',
           due_date: params.data.dueDate || null,
           remaining_balance: params.data.remainingBalance || 0,
-          is_edited: true,
         };
 
         const { error: updateError } = await supabase
@@ -2466,9 +2563,9 @@ export const useUpdateTransaction = () => {
               original_price: item.originalPrice || item.original_price || item.price,
               discount_amount: item.discountAmount || item.discount_amount || 0,
               subtotal: item.subtotal || item.total || (item.price * item.quantity),
-              unit_name: item.unitName || item.unit_name || 'pcs',
-              unit_qty: item.unitQty || item.unit_qty || item.quantity,
-              conversion_factor: item.conversionFactor || item.conversion_factor || 1,
+
+
+
             })
           );
 
@@ -2476,7 +2573,10 @@ export const useUpdateTransaction = () => {
             .from('transaction_items')
             .insert(items);
 
-          if (itemsError) throw itemsError;
+          if (itemsError) {
+            // Rollback: delete the new items and maybe the transaction update isn't reversible easily, but we definitely want to throw
+            throw itemsError;
+          }
 
           for (const item of params.data.items) {
             const productId = item.productId || item.product_id;
@@ -2550,10 +2650,23 @@ export const useUpdateStoreSettings = () => {
       try {
         const { error } = await supabase
           .from('store_settings')
-          .upsert({ id: 1, ...settings }, { onConflict: 'id' });
+          .upsert({
+            id: 1,
+            name: settings.name,
+            address: settings.address,
+            phone: settings.phone,
+            footer_message: settings.footer_message,
+            footer_message2: settings.footer_message2,
+            footer_message3: settings.footer_message3,
+            show_footer: settings.show_footer,
+            bluetooth_store_name: settings.bluetooth_store_name,
+            bank_name: settings.bank_name,
+            bank_account: settings.bank_account,
+            bank_account_name: settings.bank_account_name
+          }, { onConflict: 'id' });
 
         if (error) throw error;
-        
+
         window.dispatchEvent(new Event('storeSettingsChanged'));
         if (options?.onSuccess) options.onSuccess();
       } catch (err) {
@@ -2579,7 +2692,7 @@ export const useDiscountSettings = () => {
         .select('*')
         .eq('id', 1)
         .maybeSingle();
-      
+
       if (error) {
         if (error.code !== '42P01') { // Ignore missing table error
           throw error;
@@ -2620,7 +2733,7 @@ export const useUpdateDiscountSettings = () => {
           .upsert({ id: 1, ...settings }, { onConflict: 'id' });
 
         if (error) throw error;
-        
+
         window.dispatchEvent(new Event('discountSettingsChanged'));
         if (options?.onSuccess) options.onSuccess();
       } catch (err) {
@@ -2650,7 +2763,7 @@ export const useListOutlets = () => {
 
       if (error) {
         // Fallback: use localStorage values if table doesn't exist
-        const storeName = localStorage.getItem('storeName') || 'CV.AULIA USAHA';
+        const storeName = localStorage.getItem('storeName') || 'EL PROJECT';
         const storeAddress = localStorage.getItem('storeAddress') || '';
         const storePhone = localStorage.getItem('storePhone') || '';
         const footerMessage = localStorage.getItem('footerMessage') || 'Terima Kasih Sudah Melakukan Order';
@@ -2672,7 +2785,7 @@ export const useListOutlets = () => {
       setError(null);
     } catch (err) {
       // Fallback: use localStorage values on error
-      const storeName = localStorage.getItem('storeName') || 'CV.AULIA USAHA';
+      const storeName = localStorage.getItem('storeName') || 'EL PROJECT';
       const storeAddress = localStorage.getItem('storeAddress') || '';
       const storePhone = localStorage.getItem('storePhone') || '';
       const footerMessage = localStorage.getItem('footerMessage') || 'Terima Kasih Sudah Melakukan Order';
@@ -3388,8 +3501,8 @@ export const useBulkSaveProductUoms = () => {
         if (params.uoms.length > 0) {
           const uomsToInsert = params.uoms.map((uom, index) => ({
             product_id: params.productId,
-            unit_name: uom.unit_name,
-            conversion_factor: uom.conversion_factor,
+
+
             price: uom.price || null,
             barcode: uom.barcode || null,
             sort_order: index,
@@ -3607,7 +3720,7 @@ export const useListReturns = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('sales_returns')
-        .select('*, customers(name, phone, address, district, city), transactions(customer_name, customer_phone, customer_address), sales_return_items(*, products(image_url, product_uoms(*)), transaction_items(conversion_factor))')
+        .select('*, transactions(payment_status), customers(name, phone, address, district, city), sales_return_items(*, products(name, image_url, product_uoms(*)))')
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data;
@@ -3646,7 +3759,7 @@ export const useGetTransactionByInvoice = (transactionId: number | string | null
         const returnIds = returnsData.map(r => r.id);
         const { data: riData } = await supabase
           .from('sales_return_items')
-          .select('transaction_item_id, quantity, unit_name')
+          .select('transaction_item_id, quantity')
           .in('return_id', returnIds);
 
         returnItemsData = riData;
@@ -3659,10 +3772,7 @@ export const useGetTransactionByInvoice = (transactionId: number | string | null
         if (returnItemsData) {
           const itemReturns = returnItemsData.filter(ri => ri.transaction_item_id === item.id);
           itemReturns.forEach(ri => {
-            const uom = uoms.find((u: any) => u.unit_name === ri.unit_name);
-            // If unit is not found, fallback to 1 (assume pcs)
-            const conv = uom ? uom.conversion_factor : 1;
-            returnedBaseQty += ri.quantity * conv;
+            returnedBaseQty += ri.quantity;
           });
         }
 
@@ -3707,16 +3817,17 @@ export const useCreateReturn = () => {
         if (returnError) throw returnError;
 
         // 2. Insert return items
-        const returnItems = params.items.map(item => ({
-          return_id: returnData.id,
-          transaction_item_id: item.id, // using item.id from transaction_items
-          product_id: item.product_id,
-          product_name: item.product_name,
-          unit_name: item.return_unit_name || item.unit_name || null,
-          quantity: item.return_quantity,
-          refund_price: item.return_price || item.price,
-          subtotal: item.return_subtotal
-        }));
+        const returnItems = params.items.map(item => {
+          const conversionFactor = item.return_conversion_factor || item.conversion_factor || 1;
+          const baseQuantity = (item.return_quantity || 0) * conversionFactor;
+          return {
+            return_id: returnData.id,
+            transaction_item_id: item.id, // using item.id from transaction_items
+            product_id: item.product_id,
+            quantity: baseQuantity,
+            refund_amount: (item.return_price || item.price || 0) * (item.return_quantity || 0)
+          };
+        });
 
         const { error: itemsError } = await supabase
           .from('sales_return_items')
@@ -3733,26 +3844,59 @@ export const useCreateReturn = () => {
             const totalPcsReturned = item.return_quantity * conversionFactor;
 
             const { data: product } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
-            if (product && product.stock_quantity !== null) {
+            if (product) {
+              const currentStock = Number(product.stock_quantity || 0);
               if (!isDamagedOrExpired) {
-                const newStock = product.stock_quantity + totalPcsReturned;
-                await supabase.from('products').update({ stock_quantity: newStock }).eq('id', item.product_id);
+                const newStock = currentStock + totalPcsReturned;
+                const { error: updateErr } = await supabase.from('products').update({ stock_quantity: newStock }).eq('id', item.product_id);
+                if (updateErr) console.error("Gagal update stok produk saat retur:", updateErr);
               }
 
-              await supabase.from('stock_movements').insert({
+              const { error: moveErr } = await supabase.from('stock_movements').insert({
                 product_id: item.product_id,
                 quantity: isDamagedOrExpired ? 0 : totalPcsReturned,
                 type: isDamagedOrExpired ? 'damaged_return' : 'return_from_customer',
                 reference_id: returnData.id.toString(),
                 note: params.reason + (isDamagedOrExpired ? ` (Retur ${totalPcsReturned} pcs, Tidak masuk stok)` : '')
               });
+              if (moveErr) console.error("Gagal mencatat stock movement saat retur:", moveErr);
+            }
+          }
+
+          // Deduct from transaction remaining_balance
+          const totalReturnValue = params.items.reduce((sum: number, item: any) =>
+            sum + ((item.return_price || item.price || 0) * (item.return_quantity || 0)), 0
+          );
+
+          if (params.transactionId) {
+            const { data: trx } = await supabase
+              .from('transactions')
+              .select('remaining_balance')
+              .eq('id', params.transactionId)
+              .single();
+
+            if (trx && trx.remaining_balance > 0) {
+              const newBalance = Math.max(0, trx.remaining_balance - totalReturnValue);
+
+              const updatePayload: any = { remaining_balance: newBalance };
+              if (newBalance === 0) {
+                updatePayload.payment_status = 'paid';
+              }
+
+              await supabase
+                .from('transactions')
+                .update(updatePayload)
+                .eq('id', params.transactionId);
             }
           }
         }
 
         queryClient.invalidateQueries({ queryKey: ['sales_returns'] });
         queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() });
-
+        queryClient.invalidateQueries({ queryKey: ['stock_movements'] });
+        queryClient.invalidateQueries({ queryKey: ['transactions'] });
+        queryClient.invalidateQueries({ queryKey: ['receivables'] });
+        
         if (options?.onSuccess) options.onSuccess(returnData);
       } catch (err) {
         if (options?.onError) options.onError(err);
@@ -3787,43 +3931,72 @@ export const useConfirmReturn = () => {
 
         if (itemsError) throw itemsError;
 
-        // Fetch return reason
+        // Fetch return reason and transaction id
         const { data: salesReturn, error: returnError } = await supabase
           .from('sales_returns')
-          .select('reason')
+          .select('reason, transaction_id, total_refund')
           .eq('id', params.returnId)
           .single();
 
         if (returnError) throw returnError;
         const isDamagedOrExpired = salesReturn?.reason === 'Barang Rusak/Cacat' || salesReturn?.reason === 'Barang Kadaluarsa';
 
+        let totalReturnValue = 0;
+
         if (returnItems) {
           for (const item of returnItems) {
-            const uoms = item.products?.product_uoms || [];
-            const uom = uoms.find((u: any) => u.unit_name === item.unit_name);
-            const conversionFactor = uom ? uom.conversion_factor : 1;
-            const totalPcsReturned = item.quantity * conversionFactor;
+            totalReturnValue += Number(item.refund_amount) || 0;
+            const totalPcsReturned = item.quantity; // quantity is already stored in base PCS
 
             const { data: product } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
-            if (product && product.stock_quantity !== null) {
+            if (product) {
+              const currentStock = Number(product.stock_quantity || 0);
               if (!isDamagedOrExpired) {
-                const newStock = product.stock_quantity + totalPcsReturned;
-                await supabase.from('products').update({ stock_quantity: newStock }).eq('id', item.product_id);
+                const newStock = currentStock + totalPcsReturned;
+                const { error: updateErr } = await supabase.from('products').update({ stock_quantity: newStock }).eq('id', item.product_id);
+                if (updateErr) console.error("Gagal update stok produk konfirmasi retur:", updateErr);
               }
 
-              await supabase.from('stock_movements').insert({
+              const { error: moveErr } = await supabase.from('stock_movements').insert({
                 product_id: item.product_id,
                 quantity: isDamagedOrExpired ? 0 : totalPcsReturned,
                 type: isDamagedOrExpired ? 'damaged_return' : 'return_from_customer',
                 reference_id: params.returnId.toString(),
                 note: (salesReturn?.reason || 'Retur penjualan dari pelanggan') + (isDamagedOrExpired ? ` (Retur ${totalPcsReturned} pcs, Tidak masuk stok)` : ' (Dikonfirmasi)')
               });
+              if (moveErr) console.error("Gagal pencatatan stock movement konfirmasi retur:", moveErr);
             }
+          }
+        }
+
+        // Deduct from transaction remaining_balance
+        if (salesReturn?.transaction_id) {
+          const { data: trx } = await supabase
+            .from('transactions')
+            .select('remaining_balance')
+            .eq('id', salesReturn.transaction_id)
+            .single();
+
+          if (trx && trx.remaining_balance > 0) {
+            const newBalance = Math.max(0, trx.remaining_balance - totalReturnValue);
+
+            const updatePayload: any = { remaining_balance: newBalance };
+            if (newBalance === 0) {
+              updatePayload.payment_status = 'paid';
+            }
+
+            await supabase
+              .from('transactions')
+              .update(updatePayload)
+              .eq('id', salesReturn.transaction_id);
           }
         }
 
         queryClient.invalidateQueries({ queryKey: ['sales_returns'] });
         queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: ['stock_movements'] });
+        queryClient.invalidateQueries({ queryKey: ['transactions'] });
+        queryClient.invalidateQueries({ queryKey: ['receivables'] });
 
         if (options?.onSuccess) options.onSuccess(true);
       } catch (err) {
@@ -3891,8 +4064,7 @@ export const useCreateTransactionPayment = () => {
           notes: params.notes || null,
           payment_date: new Date().toISOString(),
           status: paymentStatus,
-          ...(isAdmin ? { confirmed_by: params.cashierName, confirmed_at: new Date().toISOString() } : {}),
-          ...(originalTrx?.owner_id ? { owner_id: originalTrx.owner_id } : {})
+          ...(isAdmin ? { confirmed_by: params.cashierName, confirmed_at: new Date().toISOString() } : {})
         };
 
         const { data: payment, error: paymentError } = await supabase
@@ -4188,10 +4360,8 @@ export const useListVisitSchedules = () => {
       const ownerIdStr = localStorage.getItem('ownerId') || localStorage.getItem('tenantOwnerId') || '';
       let dbQuery = supabase
         .from('visit_schedules')
-        .select('*, customers(id, name, phone, address, district, city)')
-        .eq('is_active', true)
-        .order('day_of_week', { ascending: true })
-        .order('visit_time', { ascending: true });
+        .select('*, customers(id, name, phone, address, district, city, village)')
+        .order('created_at', { ascending: false });
 
       if (ownerIdStr) {
         dbQuery = dbQuery.eq('owner_id', ownerIdStr);
@@ -4201,7 +4371,8 @@ export const useListVisitSchedules = () => {
       if (error) throw error;
       return data || [];
     },
-    staleTime: 5 * 60 * 1000
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   return { data: query.data || [], isLoading: query.isPending, error: query.error, refetch: query.refetch };
@@ -4216,8 +4387,8 @@ export const useCreateVisitSchedule = () => {
   ) => {
     setIsPending(true);
     try {
-      const ownerIdStr = localStorage.getItem('ownerId') || localStorage.getItem('tenantOwnerId') || '';
-      const payload = { ...params.data, owner_id: ownerIdStr };
+      const ownerIdStr = localStorage.getItem('ownerId') || localStorage.getItem('tenantOwnerId') || null;
+      const payload = { ...params.data, owner_id: ownerIdStr || null };
 
       const { data, error } = await supabase.from('visit_schedules').insert([payload]).select().single();
       if (error) throw error;
@@ -4270,7 +4441,7 @@ export const useDeleteVisitSchedule = () => {
     try {
       const { error } = await supabase
         .from('visit_schedules')
-        .update({ is_active: false })
+        .delete()
         .eq('id', params.id);
       if (error) throw error;
       if (options?.onSuccess) options.onSuccess();
@@ -4313,7 +4484,7 @@ export const useListVisitLogs = (params?: { limit?: number, offset?: number, sal
       if (params?.salesName && params.salesName !== 'all') {
         countQuery = countQuery.eq('sales_name', params.salesName);
       }
-      
+
       const { count } = await countQuery;
 
       // Data query
@@ -4334,7 +4505,7 @@ export const useListVisitLogs = (params?: { limit?: number, offset?: number, sal
 
       const { data, error } = await dbQuery;
       if (error) throw error;
-      
+
       return { data: data || [], totalCount: count || 0 };
     },
     staleTime: 5 * 60 * 1000
@@ -4417,7 +4588,7 @@ export const useListSupplierTransactions = (params?: { limit?: number, offset?: 
     fetchTransactions();
 
     const channel = supabase
-      .channel('supplier_transactions_realtime')
+      .channel(`supplier_transactions_realtime_${Math.random().toString(36).substring(2, 9)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'supplier_transactions' }, () => {
         fetchTransactions();
       })
@@ -4514,7 +4685,7 @@ export const useListSupplierReturns = () => {
     fetchReturns();
 
     const channel = supabase
-      .channel('supplier_returns_realtime')
+      .channel(`supplier_returns_realtime_${Math.random().toString(36).substring(2, 9)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'supplier_returns' }, () => {
         fetchReturns();
       })

@@ -42,7 +42,7 @@
 
 ### Step 1: Rebuild APK dengan perbaikan terbaru
 ```bash
-cd c:\Users\Administrator\Desktop\SBAGIAMU\artifacts\kasir
+cd c:\Users\Administrator\Desktop\elproject\artifacts\kasir
 
 # Build web app
 npm run build

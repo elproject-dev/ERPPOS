@@ -433,11 +433,7 @@ INSERT INTO customers (name, email, phone, membership_type, points) VALUES
 
 INSERT INTO staff (name, email, phone, role, status) VALUES 
 
-('Ahmad Kasir', 'ahmad@sbagiamu.com', '08123456789', 'kasir', 'active'),
-
-('Budi Supervisor', 'budi@sbagiamu.com', '08156789012', 'supervisor', 'active'),
-
-('Super Admin', 'sbagiamu.pos@gmail.com', '08123456789', 'admin', 'active');
+('Super Admin', 'elproject.dev@gmail.com', '08123456789', 'admin', 'active');
 
 
 
@@ -777,7 +773,7 @@ AS $$
     lower(auth.jwt() -> 'user_metadata' ->> 'role') = 'admin',
     false
   )
-  OR lower(auth.jwt() ->> 'email') = 'sbagiamu.pos@gmail.com';
+  OR lower(auth.jwt() ->> 'email') = 'elproject.pos@gmail.com';
 $$;
 
 CREATE OR REPLACE FUNCTION public.can_access_owner(target_owner_id UUID)
@@ -1005,7 +1001,7 @@ CREATE POLICY "Allow public delete on transaction_items" ON transaction_items FO
 --   Authentication → Users → Add user → Create new user
 --
 -- Contoh Kasir 1:
---   Email   : kasir1@sbagiamu.com
+--   Email   : kasir1@elproject.com
 --   Password: (password kuat)
 --   ✓ Auto Confirm User
 --
@@ -1016,7 +1012,7 @@ CREATE POLICY "Allow public delete on transaction_items" ON transaction_items FO
 --   }
 --
 -- Contoh Kasir 2:
---   Email   : kasir2@sbagiamu.com
+--   Email   : kasir2@elproject.com
 --   Password: (password kuat)
 --   User Metadata:
 --   {
@@ -1029,8 +1025,8 @@ CREATE POLICY "Allow public delete on transaction_items" ON transaction_items FO
 --   "kasir"  atau  "sales"
 --
 -- Admin (lihat semua data):
---   Email: sbagiamu.pos@gmail.com
---   Metadata: { "name": "Admin SBAGIAMU", "role": "admin" }
+--   Email: elproject.pos@gmail.com
+--   Metadata: { "name": "Admin elproject", "role": "admin" }
 --
 -- Setelah login:
 --   • Kasir hanya melihat produk/kategori/transaksi miliknya
@@ -1049,13 +1045,13 @@ CREATE POLICY "Allow public delete on transaction_items" ON transaction_items FO
 -- Langkah: Supabase Dashboard → Authentication → Users
 --          → Add user → Create new user
 --
---   Email   : sbagiamu.pos@gmail.com
+--   Email   : elproject.pos@gmail.com
 --   Password: admin123
 --   ✓ Auto Confirm User (centang)
 --
 --   User Metadata (opsional):
 --   {
---     "name": "Admin SBAGIAMU",
+--     "name": "Admin elproject",
 --     "role": "admin"
 --   }
 -- ============================================================
@@ -1817,7 +1813,7 @@ AS $$
     lower(auth.jwt() -> 'user_metadata' ->> 'role') = 'admin',
     false
   )
-  OR lower(auth.jwt() ->> 'email') = 'sbagiamu.pos@gmail.com';
+  OR lower(auth.jwt() ->> 'email') = 'elproject.pos@gmail.com';
 $$;
 
 -- Function to automatically set owner_id

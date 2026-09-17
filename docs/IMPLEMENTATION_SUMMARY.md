@@ -1,7 +1,7 @@
 # 📋 Receipt Raw Print - Implementation Summary
 
 **Created:** June 7, 2026  
-**Project:** Kasir - Sbagiamu POS System  
+**Project:** Kasir - elproject POS System  
 **Module:** Bluetooth Thermal Printer Receipt
 
 ---
@@ -86,7 +86,7 @@ Footer
 ```typescript
 interface ReceiptData {
   // Header (optional)
-  storeName?: string;              // default: 'SBAGIAMU'
+  storeName?: string;              // default: 'elproject'
   storeAddress?: string;           // optional
 
   // Transaction (required)
@@ -307,7 +307,7 @@ await printSimpleReceipt(receipt);
 4. **Convert dari database:**
    ```typescript
    const receipt = transactionToReceiptData(dbTransaction, {
-     storeName: 'Sbagiamu',
+     storeName: 'elproject',
      storeAddress: 'jl.condong catur no 13 yk',
    });
    ```

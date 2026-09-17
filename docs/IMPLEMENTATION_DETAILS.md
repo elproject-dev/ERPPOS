@@ -94,8 +94,8 @@ useEffect(() => {
 
 **Build Configuration** (`build.gradle`):
 ```gradle
-namespace = "com.sbagiamu.app"
-applicationId "com.sbagiamu.app"
+namespace = "com.elproject.app"
+applicationId "com.elproject.app"
 minSdkVersion 26
 targetSdkVersion 34
 versionCode 1
@@ -110,7 +110,7 @@ versionName "1.0"
 - **Device**: Xiaomi Redmi Note 9 Pro (surya_global)
 - **Serial**: e88b3f6b
 - **Android Version**: 12+ (API 31+)
-- **Package**: com.sbagiamu.app
+- **Package**: com.elproject.app
 - **Build Type**: Debug APK
 
 ### APK Details
@@ -251,7 +251,7 @@ adb install android/app/build/outputs/apk/debug/app-debug.apk
 adb logcat | grep -i bluetooth
 
 # Launch app
-adb shell am start -n com.sbagiamu.app/.MainActivity
+adb shell am start -n com.elproject.app/.MainActivity
 ```
 
 ### For End User
@@ -386,6 +386,6 @@ adb shell am start -n com.sbagiamu.app/.MainActivity
 **Implementation Date**: June 7, 2026  
 **Status**: ✅ COMPLETE AND DEPLOYED  
 **Version**: 1.0  
-**Package**: com.sbagiamu.app  
+**Package**: com.elproject.app  
 **Target**: Android 10+ (API 26+)  
 

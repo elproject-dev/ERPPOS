@@ -347,7 +347,7 @@ formatDateIndonesia(new Date('2026-05-12T12:01:00'))
   === "12-05-2026,12.01" ✓
 
 // Test centerText
-centerText('SBAGIAMU', 32) → "    SBAGIAMU    " ✓
+centerText('elproject', 32) → "    elproject    " ✓
 
 // Test padRight
 padRight("No.ID :", 22) → "No.ID :         " ✓

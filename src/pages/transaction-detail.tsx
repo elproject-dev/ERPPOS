@@ -31,9 +31,9 @@ export default function TransactionDetailPage() {
   const { user } = useAuth();
   const id = parseInt(params.id || "0");
   const { data: storeSettingsData, isLoading: isLoadingStore } = useStoreSettings();
-  
+
   const storeInfo = {
-    name: storeSettingsData?.name || 'CV.AULIA USAHA',
+    name: storeSettingsData?.name || 'EL PROJECT',
     address: storeSettingsData?.address || '',
     phone: storeSettingsData?.phone || '',
     showFooter: storeSettingsData?.show_footer ?? true,
@@ -45,7 +45,7 @@ export default function TransactionDetailPage() {
     return localStorage.getItem('enablePPN') === 'true';
   });
 
-  // Check if user is admin (only cvauliausaha@gmail.com)
+  // Check if user is admin (only elproject.dev@gmail.com)
   const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
 
   const { data: trx, isLoading } = useGetTransaction(id);
@@ -336,16 +336,16 @@ export default function TransactionDetailPage() {
                 ) : null}
                 {(() => {
                   if (!trx.discount || trx.discount <= 0) return null;
-                  
+
                   let globalDiscountAmount = 0;
                   let globalDiscountPercent = 0;
                   let adminDiscountPercent = 0;
                   let hasGlobalDiscount = false;
                   let hasAdminPercent = false;
                   let hasAdminNote = false;
-                  
+
                   const note = trx.discount_note || '';
-                  
+
                   // Parse Global Discount
                   const globalMatch = note.match(/Diskon Global (\d+(\.\d+)?)%/);
                   if (globalMatch) {
@@ -353,7 +353,7 @@ export default function TransactionDetailPage() {
                     globalDiscountAmount = Math.floor((trx.subtotal || 0) * (globalDiscountPercent / 100));
                     hasGlobalDiscount = true;
                   }
-                  
+
                   // Parse Admin Discount
                   const adminMatch = note.match(/Diskon Admin (\d+(\.\d+)?)%/);
                   if (adminMatch) {
@@ -363,19 +363,19 @@ export default function TransactionDetailPage() {
                   } else if (note.includes('Diskon Admin')) {
                     hasAdminNote = true;
                   }
-                  
+
                   const manualDiscount = hasGlobalDiscount ? (trx.discount - globalDiscountAmount) : trx.discount;
-                  
+
                   // If it's a completely old transaction without any structured notes
                   if (!hasGlobalDiscount && !hasAdminNote) {
-                     return (
-                        <div className="flex justify-between text-destructive">
-                          <span>Diskon {note ? `(${note})` : ''}</span>
-                          <span>-{formatRupiah(trx.discount)}</span>
-                        </div>
-                     );
+                    return (
+                      <div className="flex justify-between text-destructive">
+                        <span>Diskon {note ? `(${note})` : ''}</span>
+                        <span>-{formatRupiah(trx.discount)}</span>
+                      </div>
+                    );
                   }
-                  
+
                   return (
                     <>
                       {globalDiscountAmount > 0 && (
