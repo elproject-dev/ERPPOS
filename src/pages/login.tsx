@@ -119,7 +119,7 @@ export default function LoginPage() {
 
       <div className="w-full max-w-[420px] relative z-10">
         <div className="text-center mb-10">
-          <img src={`${import.meta.env.BASE_URL}td.png`} alt="Logo" className="h-28 w-auto mx-auto object-contain mb-5 drop-shadow-2xl brightness-0 invert" />
+          <img src={`${import.meta.env.BASE_URL}td.png`} alt="Logo" className="h-28 w-auto mx-auto object-contain mb-5 drop-shadow-2xl" />
         </div>
 
         <div className="relative group">
