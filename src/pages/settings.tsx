@@ -892,13 +892,13 @@ export default function SettingsPage() {
                 {/* App Info */}
                 <div className="flex items-center gap-4 p-5 bg-gradient-to-r from-primary/10 to-primary/5 dark:bg-none dark:bg-black rounded-xl">
                   <div className="flex-1">
-                    <h3 className="font-bold text-lg text-slate-900 dark:text-white">EL PROJECT</h3>
+                    <h3 className="font-bold text-lg text-slate-900 dark:text-white">Tembus Digital</h3>
                     <p className="text-sm text-slate-500 dark:text-slate-400">Point of Sale System</p>
                     <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Versi {APP_VERSION}</p>
                   </div>
                   <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center p-2 animate-logo-ring">
                     <img
-                      src={`${import.meta.env.BASE_URL}elproject.webp`}
+                      src={`${import.meta.env.BASE_URL}logo.png`}
                       alt="Logo"
                       className="w-12 h-12 object-contain"
                     />
@@ -908,7 +908,7 @@ export default function SettingsPage() {
                 {/* Footer */}
                 <div className="text-center pt-4 border-t border-slate-100 dark:border-slate-700">
                   <p className="text-xs text-slate-400 dark:text-slate-500">
-                    EL PROJECT DEVELOPMENT
+                    TEMBUS DIGITAL
                   </p>
                 </div>
               </div>

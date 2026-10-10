@@ -1,7 +1,7 @@
-export const APP_VERSION = '1.0.19';
+export const APP_VERSION = '1.0.20';
 
 export const RELEASE_CHANGELOG = [
-  "update bug"
+  "ubah icon android & pwa"
 ];
 
 export interface UpdateInfo {

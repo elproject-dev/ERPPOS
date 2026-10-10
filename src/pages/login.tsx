@@ -119,8 +119,7 @@ export default function LoginPage() {
 
       <div className="w-full max-w-[420px] relative z-10">
         <div className="text-center mb-10">
-          <img src={`${import.meta.env.BASE_URL}elproject.webp`} alt="Logo" className="h-28 w-auto mx-auto object-contain mb-5 drop-shadow-2xl" />
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-widest drop-shadow-lg">EL PROJECT</h1>
+          <img src={`${import.meta.env.BASE_URL}td.png`} alt="Logo" className="h-28 w-auto mx-auto object-contain mb-5 drop-shadow-2xl brightness-0 invert" />
         </div>
 
         <div className="relative group">
